@@ -17,6 +17,7 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.6.21")
+    implementation("com.github.wendykierp:JTransforms:3.1")
 
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
 }
