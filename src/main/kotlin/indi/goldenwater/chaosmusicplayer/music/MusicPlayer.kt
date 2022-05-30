@@ -20,6 +20,7 @@ import kotlin.system.measureTimeMillis
 
 class MusicPlayer(
     private val musicFile: File,
+    private val preload: Boolean = true,
     private val ticksPerSecond: Int = 20,
     private val maxSoundNumber: Int = 247,
     private val minimumVolume: Double = 0.005
@@ -79,6 +80,8 @@ class MusicPlayer(
     //endregion
 
     //region cache
+    private val audioBuffer: ByteBuffer = ByteBuffer.allocate(audioInputStream.frameLength.toInt() * frameSize)
+
     private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
     private val tickBufferArrays: MutableMap<Int, ByteArray> = mutableMapOf()
 
@@ -88,9 +91,19 @@ class MusicPlayer(
     private var playing = true
     private var running = true
 
+    init {
+        if (preload)
+            audioInputStream.read(audioBuffer.array())
+    }
+
     private fun readATick(maxBytes: Int): ByteBuffer {
         val result = tickBufferArrays.getOrPut(maxBytes) { ByteArray(maxBytes) }
-        audioInputStream.read(result)
+
+        if (preload)
+            audioBuffer.get(result)
+        else
+            audioInputStream.read(result)
+
         return ByteBuffer
             .wrap(result)
             .order(if (isBigEndian) ByteOrder.BIG_ENDIAN else ByteOrder.LITTLE_ENDIAN)
@@ -117,8 +130,7 @@ class MusicPlayer(
         if (!playing) return
 
         //region readData
-        val packetSize = audioInputStream
-            .available()
+        val packetSize = (if (preload) audioBuffer.remaining() else audioInputStream.available())
             .coerceAtMost(framePerTick * frameSize)
         if (packetSize == 0) {
             this.stop()
@@ -213,6 +225,9 @@ class MusicPlayer(
     }
 
     fun reset() {
-        audioInputStream = AudioSystem.getAudioInputStream(musicFile)
+        if (preload)
+            audioBuffer.clear()
+        else
+            audioInputStream = AudioSystem.getAudioInputStream(musicFile)
     }
 }

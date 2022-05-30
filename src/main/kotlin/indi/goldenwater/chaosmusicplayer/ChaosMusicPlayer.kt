@@ -17,7 +17,11 @@ class ChaosMusicPlayer : JavaPlugin() {
         if (!musicFolder.exists())
             musicFolder.mkdirs()
 
-        musicPlayer = MusicPlayer(File(musicFolder, "Miracle Forest (VIP Mix) - Rinth.wav"), ticksPerSecond = 19, minimumVolume = 0.001)
+        musicPlayer = MusicPlayer(
+            File(musicFolder, "Symphony of Boreal Wind 冰封交响曲 - 陈致逸,HOYO-MiX.wav"),
+            ticksPerSecond = 20,
+            minimumVolume = 0.0
+        )
         musicPlayer.runTaskAsynchronously(this)
 
         logger.info("Enabled")
