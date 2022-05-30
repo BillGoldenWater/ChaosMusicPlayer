@@ -18,6 +18,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.system.measureTimeMillis
 
+@Suppress("unused")
 class MusicPlayer(
     private val musicFile: File,
     private val preload: Boolean = true,
