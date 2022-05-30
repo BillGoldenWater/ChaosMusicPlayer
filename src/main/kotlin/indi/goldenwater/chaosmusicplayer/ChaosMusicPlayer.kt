@@ -6,11 +6,16 @@ import org.bukkit.plugin.java.JavaPlugin
 @Suppress("unused")
 class ChaosMusicPlayer : JavaPlugin() {
     override fun onEnable() {
+        saveDefaultConfig()
+        reloadConfig()
 
+        logger.info("Enabled")
     }
 
     override fun onDisable() {
+        saveConfig()
 
+        logger.info("Disabled")
     }
 }
 
