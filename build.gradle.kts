@@ -40,7 +40,7 @@ tasks {
                 "processResources"
             )
         )
-        archiveClassifier.set("standalone") // Naming the jar
+//        archiveClassifier.set("standalone") // Naming the jar
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
         val sourcesMain = sourceSets.main.get()
