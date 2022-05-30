@@ -16,7 +16,7 @@ import kotlin.math.roundToLong
 import kotlin.math.sin
 
 const val packetName = "ChaosMusicPlayer"
-val packetNamespace = "minecraft"
+const val packetNamespace = "minecraft"
 
 const val maxFrequencyNeedProvide = 20000.0
 
@@ -32,7 +32,7 @@ fun sineWave(frequency: Double, seconds: Double, sampleRate: Int): ByteArray {
 
     val interval = sampleRate.toDouble() / frequency
 
-    for (i in 0 until samples) {
+    for (i in 1..samples) {
         val radians = Math.toRadians((i / interval) * 360)
         val value = sin(radians) * Long.MAX_VALUE
         result.putLong(
@@ -88,7 +88,7 @@ fun generateSineWaveFiles(outputDir: File, maxFrequency: Double = maxFrequencyNe
 
     val generate = { frequency: Double ->
         println("generating ${getSineWaveFileName(frequency)}")
-        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 1.0)
+        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 1.0, 96_000)
     }
 
     frequencies.forEach(generate)
