@@ -2,6 +2,7 @@ import java.net.URI
 
 plugins {
     kotlin("jvm") version "1.6.21"
+    kotlin("plugin.serialization") version "1.6.21"
 }
 
 group = "indi.goldenwater"
@@ -17,6 +18,8 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.6.21")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
+
     implementation("com.github.wendykierp:JTransforms:3.1")
 
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
@@ -41,7 +44,8 @@ tasks {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
         val sourcesMain = sourceSets.main.get()
-        val contents = configurations.runtimeClasspath.get()
+        val contents = configurations.runtimeClasspath
+            .get()
             .map { if (it.isDirectory) it else zipTree(it) } +
                 sourcesMain.output
         from(contents)
