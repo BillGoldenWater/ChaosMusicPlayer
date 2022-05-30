@@ -12,7 +12,7 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
-import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlin.math.sin
 
 const val packetName = "ChaosMusicPlayer"
@@ -26,30 +26,29 @@ val json = Json {
 }
 
 //region sine wave audio files generate
-fun sineWave(frequency: Double, seconds: Int, sampleRate: Int): ByteArray {
-    val samples = seconds * sampleRate
-    val result = ByteBuffer.allocate(samples * Short.SIZE_BYTES)
+fun sineWave(frequency: Double, seconds: Double, sampleRate: Int): ByteArray {
+    val samples = (seconds * sampleRate).toInt()
+    val result = ByteBuffer.allocate(samples * Long.SIZE_BYTES)
 
     val interval = sampleRate.toDouble() / frequency
 
     for (i in 0 until samples) {
         val radians = Math.toRadians((i / interval) * 360)
-        val value = sin(radians) * Short.MAX_VALUE
-        result.putShort(
+        val value = sin(radians) * Long.MAX_VALUE
+        result.putLong(
             value
-                .roundToInt()
-                .toShort()
+                .roundToLong()
         )
     }
     return result.array()
 }
 
-fun generateSineWaveFile(file: File, frequency: Double, seconds: Int = 1, sampleRate: Int = 44000) {
+fun generateSineWaveFile(file: File, frequency: Double, seconds: Double = 1.0, sampleRate: Int = 44000) {
     val buffer = sineWave(frequency, seconds, sampleRate)
-    val format = AudioFormat(sampleRate.toFloat(), Short.SIZE_BITS, 1, true, true)
+    val format = AudioFormat(sampleRate.toFloat(), Long.SIZE_BITS, 1, true, true)
 
     AudioSystem.write(
-        AudioInputStream(ByteArrayInputStream(buffer), format, buffer.size.toLong() / Short.SIZE_BYTES),
+        AudioInputStream(ByteArrayInputStream(buffer), format, buffer.size.toLong() / Long.SIZE_BYTES),
         AudioFileFormat.Type.WAVE,
         file
     )
@@ -79,7 +78,6 @@ fun getFrequenciesNeedGen(maxFrequency: Double = maxFrequencyNeedProvide): Mutab
 fun getSineWaveFileName(frequency: Double, ext: String = ".wav"): String {
     val frequencyName = frequency
         .toString()
-        .replace(Regex(""".0$"""), "")
         .replace(".", "_")
         .replace("-", "n")
     return "$frequencyName$ext"
@@ -90,7 +88,7 @@ fun generateSineWaveFiles(outputDir: File, maxFrequency: Double = maxFrequencyNe
 
     val generate = { frequency: Double ->
         println("generating ${getSineWaveFileName(frequency)}")
-        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 1)
+        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 0.05)
     }
 
     frequencies.forEach(generate)
@@ -107,7 +105,7 @@ fun transCodeToOgg(dir: File) {
             if (sourceFile.extension == "ogg") return@forEach
 
             val ffmpegProcessBuilder = ProcessBuilder(
-                "ffmpeg", "-y", "-i", sourceFile.canonicalPath, targetFile.canonicalPath
+                "ffmpeg", "-y", "-i", sourceFile.canonicalPath, "-qscale:a", "5", targetFile.canonicalPath
             )
             println("trans code ${sourceFile.name} to ${targetFile.name}")
             ffmpegProcessBuilder
