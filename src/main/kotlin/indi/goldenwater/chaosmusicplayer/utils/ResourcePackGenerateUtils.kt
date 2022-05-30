@@ -88,7 +88,7 @@ fun generateSineWaveFiles(outputDir: File, maxFrequency: Double = maxFrequencyNe
 
     val generate = { frequency: Double ->
         println("generating ${getSineWaveFileName(frequency)}")
-        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 1.0, 96_000)
+        generateSineWaveFile(File(outputDir, getSineWaveFileName(frequency)), frequency, 2.0, 96_000)
     }
 
     frequencies.forEach(generate)
