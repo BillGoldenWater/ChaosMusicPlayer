@@ -27,13 +27,17 @@ class MusicPlayer(
     private val targetPlayers: MutableList<Player> = Bukkit.getServer().onlinePlayers.toMutableList()
 
     private var audioInputStream: AudioInputStream = AudioSystem.getAudioInputStream(musicFile)
+
+    //region format
     private val format: AudioFormat = audioInputStream.format
     private val channelSize = format.channels
     private val sampleRate = format.sampleRate
     private val sampleSize = format.sampleSizeInBits
     private val frameSize = format.frameSize
     private val isBigEndian = format.isBigEndian
+    //endregion
 
+    //region utilities
     private val framePerTick: Int = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
     private val frameBuffer: DoubleBuffer = DoubleBuffer.allocate(channelSize)
     private val readAFrame: (ByteBuffer) -> Unit = when (sampleSize) {
@@ -72,8 +76,14 @@ class MusicPlayer(
         }
         else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
     }
+    //endregion
+
+    //region cache
     private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
     private val tickBufferArrays: MutableMap<Int, ByteArray> = mutableMapOf()
+
+    private val soundsNeedPlay: MutableList<MCSoundItem> = mutableListOf()
+    //endregion
 
     private var playing = true
     private var running = true
@@ -87,9 +97,12 @@ class MusicPlayer(
     }
 
     override fun run() {
+        tickWhenWaiting()
         while (running) {
             val cost = measureTimeMillis { tick() }
-            val delay = ((1000 / ticksPerSecond) - cost).coerceAtLeast(0)
+            if (!running) break
+            val waitingCost = measureTimeMillis { tickWhenWaiting() }
+            val delay = ((1000 / ticksPerSecond) - (cost + waitingCost)).coerceAtLeast(0)
             Thread.sleep(delay)
         }
     }
@@ -97,12 +110,18 @@ class MusicPlayer(
     private fun tick() {
         if (!playing) return
 
+        playToPlayers()
+    }
+
+    private fun tickWhenWaiting() {
+        if (!playing) return
+
         //region readData
         val packetSize = audioInputStream
             .available()
             .coerceAtMost(framePerTick * frameSize)
         if (packetSize == 0) {
-            this.cancel()
+            this.stop()
             return
         }
         val tickFrame = readATick(packetSize)
@@ -149,7 +168,7 @@ class MusicPlayer(
         dSTOutputSounds.sortByDescending { abs(it.first) }
 
         val soundsNeedPlayNum = dSTOutputSounds.size.coerceAtMost(maxSoundNumber)
-        val soundsNeedPlay: MutableList<MCSoundItem> = MutableList(soundsNeedPlayNum) { MCSoundItem("", 0.0f, 0.0f) }
+        soundsNeedPlay.clear()
         for (i in 0 until soundsNeedPlayNum) {
             val item = dSTOutputSounds[i]
             val dstValue = item.first
@@ -169,11 +188,9 @@ class MusicPlayer(
             }
         }
         //endregion
-
-        playToPlayers(soundsNeedPlay)
     }
 
-    private fun playToPlayers(soundsNeedPlay: MutableList<MCSoundItem>) {
+    private fun playToPlayers() {
         targetPlayers.forEach { player ->
             player.stopAllSounds()
 
