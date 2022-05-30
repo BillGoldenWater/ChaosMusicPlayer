@@ -51,6 +51,12 @@ fun generateSineWaveFiles(outputDir: File = File("sineWaveFiles"), maxFrequency:
 
     var generateFrequency = startFrequency * 2
     var nextStartFrequency = generateFrequency * 2
+    val getFileName = { frequency: Double ->
+        frequency.toString()
+            .replace(Regex(""".0$"""), "")
+            .replace(".", "_")
+            .replace("-", "n") + ".wav"
+    }
 
     if (!outputDir.exists()) {
         outputDir.mkdir()
@@ -58,14 +64,40 @@ fun generateSineWaveFiles(outputDir: File = File("sineWaveFiles"), maxFrequency:
         throw IllegalArgumentException("Output directory is not a directory")
     }
 
+    val generatePositiveAndNegative = { frequency: Double ->
+        generateSineWaveFile(File(outputDir, getFileName(frequency)), frequency, 1)
+        generateSineWaveFile(File(outputDir, getFileName(frequency * -1)), frequency, 1)
+    }
+
     while (nextStartFrequency < maxFrequency) {
-        generateSineWaveFile(File(outputDir, "$generateFrequency.wav"), generateFrequency, 1)
+        generatePositiveAndNegative(generateFrequency)
+
         generateFrequency = nextStartFrequency * 2
         nextStartFrequency = generateFrequency * 2
     }
-    generateSineWaveFile(File(outputDir, "$generateFrequency.wav"), generateFrequency, 1)
+    generatePositiveAndNegative(generateFrequency)
+}
+
+/**
+ * need ffmpeg install
+ */
+fun transCodeToOgg(dir: File = File("sineWaveFiles")) {
+    if (!dir.isDirectory) throw IllegalArgumentException("${dir.path} is not a directory")
+    dir.listFiles()?.forEach { sourceFile ->
+        val targetFile = File(sourceFile.parentFile, "${sourceFile.nameWithoutExtension}.ogg")
+
+        val ffmpegProcessBuilder = ProcessBuilder(
+            "ffmpeg",
+            "-y",
+            "-i",
+            sourceFile.canonicalPath,
+            targetFile.canonicalPath
+        )
+        ffmpegProcessBuilder.start()
+    }
 }
 
 fun main() {
     generateSineWaveFiles()
+    transCodeToOgg()
 }
