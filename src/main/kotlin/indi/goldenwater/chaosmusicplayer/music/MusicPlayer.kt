@@ -161,6 +161,8 @@ class MusicPlayer(
         //endregion
 
         //region generateSoundsNeedPlay
+        val dstValueToVolume = { value: Double -> abs(value / (packetMonoArray.size / 2)) }
+
         dSTs
             .getOrPut(frameNum) {
                 DoubleDST_1D(frameNum.toLong())
@@ -171,12 +173,12 @@ class MusicPlayer(
         val dSTOutputSounds: MutableList<Pair<Double, Int>> = mutableListOf()
         for (i in packetMonoArray.indices) {
             val dstValue = packetMonoArray[i]
-            if (abs(dstValue / (packetMonoArray.size / 2)) < minimumVolume) continue
+            if (dstValueToVolume(dstValue) < minimumVolume) continue
 
             dSTOutputSounds.add(dstValue to i)
         }
 
-        dSTOutputSounds.removeIf { abs(it.first / (packetMonoArray.size / 2)) == 0.0 }
+        dSTOutputSounds.removeIf { dstValueToVolume(it.first) == 0.0 }
 
         dSTOutputSounds.sortByDescending { abs(it.first) }
 
@@ -185,7 +187,7 @@ class MusicPlayer(
         for (i in 0 until soundsNeedPlayNum) {
             val item = dSTOutputSounds[i]
             val dstValue = item.first
-            val volume = abs(dstValue / (packetMonoArray.size / 2))
+            val volume = dstValueToVolume(dstValue)
             val frequency = (item.second + 1) / 2.0
 
             getFrequencySoundInfo((frequency * if (dstValue < 0) -1.0 else 1.0) * ticksPerSecond)?.let { info ->
