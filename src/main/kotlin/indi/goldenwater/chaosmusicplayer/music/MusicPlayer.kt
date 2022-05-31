@@ -1,6 +1,6 @@
 package indi.goldenwater.chaosmusicplayer.music
 
-import indi.goldenwater.chaosmusicplayer.type.MCSoundItem
+import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
 import org.bukkit.Bukkit
 import org.bukkit.SoundCategory
@@ -25,7 +25,8 @@ class MusicPlayer(
     private val preload: Boolean = true,
     private val ticksPerSecond: Int = 20,
     private val maxSoundNumber: Int = 247,
-    private val minimumVolume: Double = 0.005
+    private val minimumVolume: Double = 0.001,
+    private val removeLowVolumeValueInPercent: Double = 0.005,
 ) : BukkitRunnable() {
     private val targetPlayers: MutableList<Player> = Bukkit.getServer().onlinePlayers.toMutableList()
 
@@ -56,19 +57,10 @@ class MusicPlayer(
                     else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
                 }
                 AudioFormat.Encoding.PCM_UNSIGNED -> when (sampleSize) {
-                    8 -> buffer
-                        .get()
-                        .toUByte()
-                        .toDouble() / Byte.MAX_VALUE - 1.0
-                    16 -> buffer.short
-                        .toUShort()
-                        .toDouble() / Short.MAX_VALUE - 1.0
-                    32 -> buffer.int
-                        .toUInt()
-                        .toDouble() / Int.MAX_VALUE - 1.0
-                    64 -> buffer.long
-                        .toULong()
-                        .toDouble() / Long.MAX_VALUE - 1.0
+                    8 -> buffer.get().toUByte().toDouble() / Byte.MAX_VALUE - 1.0
+                    16 -> buffer.short.toUShort().toDouble() / Short.MAX_VALUE - 1.0
+                    32 -> buffer.int.toUInt().toDouble() / Int.MAX_VALUE - 1.0
+                    64 -> buffer.long.toULong().toDouble() / Long.MAX_VALUE - 1.0
                     else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
                 }
                 else -> throw IllegalArgumentException("Unsupported encoding $encoding")
@@ -84,28 +76,23 @@ class MusicPlayer(
     private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
     private val tickBufferArrays: MutableMap<Int, ByteArray> = mutableMapOf()
 
-    private val soundsNeedPlay: MutableList<MCSoundItem> = mutableListOf()
+    private val soundsNeedPlay: MutableList<MCSoundEventItem> = mutableListOf()
     //endregion
 
     private var playing = true
     private var running = true
 
     init {
-        if (preload)
-            audioInputStream.read(audioBuffer.array())
+        if (preload) audioInputStream.read(audioBuffer.array())
     }
 
     private fun readATick(maxBytes: Int): ByteBuffer {
         val result = tickBufferArrays.getOrPut(maxBytes) { ByteArray(maxBytes) }
 
-        if (preload)
-            audioBuffer.get(result)
-        else
-            audioInputStream.read(result)
+        if (preload) audioBuffer.get(result)
+        else audioInputStream.read(result)
 
-        return ByteBuffer
-            .wrap(result)
-            .order(if (isBigEndian) ByteOrder.BIG_ENDIAN else ByteOrder.LITTLE_ENDIAN)
+        return ByteBuffer.wrap(result).order(if (isBigEndian) ByteOrder.BIG_ENDIAN else ByteOrder.LITTLE_ENDIAN)
     }
 
     override fun run() {
@@ -117,6 +104,7 @@ class MusicPlayer(
                 tickWhenWaiting()
             }
             val costMillis = costNano.toDouble() / 1000 / 1000
+
             val delay = ((1000.0 / ticksPerSecond) - costMillis).coerceAtLeast(0.0)
             Thread.sleep(delay.roundToLong())
         }
@@ -151,11 +139,7 @@ class MusicPlayer(
 
         while (tickFrame.hasRemaining()) {
             readAFrame(tickFrame)
-            packetMono.put(
-                frameBuffer
-                    .array()
-                    .sum()
-            )
+            packetMono.put(frameBuffer.array().sum())
         }
 
         val packetMonoArray = packetMono.array()
@@ -164,43 +148,45 @@ class MusicPlayer(
         //region generateSoundsNeedPlay
         val dstValueToVolume = { value: Double -> abs(value / (packetMonoArray.size / 2)) }
 
-        dSTs
-            .getOrPut(frameNum) {
-                DoubleDST_1D(frameNum.toLong())
-            }
-            .forward(packetMonoArray, false)
+        val dst = dSTs.getOrPut(frameNum) { DoubleDST_1D(frameNum.toLong()) }
+        dst.forward(packetMonoArray, false)
 
+        var minimumUDstValue = Double.MAX_VALUE
+        var maximumUDstValue = 0.0
         // Pair<Double, Int> dstValue index
         val dSTOutputSounds: MutableList<Pair<Double, Int>> = mutableListOf()
         for (i in packetMonoArray.indices) {
             val dstValue = packetMonoArray[i]
-            if (dstValueToVolume(dstValue) < minimumVolume) continue
+
+            val volume = dstValueToVolume(dstValue)
+            if (volume < minimumVolume || volume == 0.0) continue
+
+            val uDstValue = abs(dstValue)
+            if (uDstValue < minimumUDstValue) minimumUDstValue = uDstValue
+            else if (uDstValue > maximumUDstValue) maximumUDstValue = uDstValue
 
             dSTOutputSounds.add(dstValue to i)
         }
+        val uDstValueRange = maximumUDstValue - minimumUDstValue
 
-        dSTOutputSounds.removeIf { dstValueToVolume(it.first) == 0.0 }
+        dSTOutputSounds.removeIf { abs(it.first) < minimumUDstValue + (uDstValueRange * removeLowVolumeValueInPercent) }
 
         dSTOutputSounds.sortByDescending { abs(it.first) }
+        //endregion
+
+        //region convert to minecraft sound event
+        soundsNeedPlay.clear()
 
         val soundsNeedPlayNum = dSTOutputSounds.size.coerceAtMost(maxSoundNumber)
-        soundsNeedPlay.clear()
         for (i in 0 until soundsNeedPlayNum) {
             val item = dSTOutputSounds[i]
             val dstValue = item.first
-            val volume = dstValueToVolume(dstValue)
-            val frequency = (item.second + 1) / 2.0
 
-            getFrequencySoundInfo((frequency * if (dstValue < 0) -1.0 else 1.0) * ticksPerSecond)?.let { info ->
-                soundsNeedPlay.add(
-                    MCSoundItem(
-                        info.eventName,
-                        volume
-                            .toFloat(),
-                        info.pitch
-                            .toFloat()
-                    )
-                )
+            val volume = dstValueToVolume(dstValue).toFloat()
+            val frequency = ((item.second + 1) / 2.0) * (if (dstValue < 0) -1.0 else 1.0)
+
+            getFrequencySoundInfo(frequency * ticksPerSecond)?.let { info ->
+                soundsNeedPlay.add(MCSoundEventItem(info.eventName, volume, info.pitch.toFloat()))
             }
         }
         //endregion
@@ -216,10 +202,10 @@ class MusicPlayer(
         }
     }
 
-    fun getPlayedPercent(): Double = if (preload)
-        audioBuffer.position() / (audioBuffer.capacity() + 0.0)
-    else
-        0.0
+    fun getPlayedPercent(): Double =
+        if (preload)
+            audioBuffer.position() / (audioBuffer.capacity() + 0.0)
+        else 0.0
 
     fun play() {
         playing = true
@@ -234,9 +220,7 @@ class MusicPlayer(
     }
 
     fun reset() {
-        if (preload)
-            audioBuffer.clear()
-        else
-            audioInputStream = AudioSystem.getAudioInputStream(musicFile)
+        if (preload) audioBuffer.clear()
+        else audioInputStream = AudioSystem.getAudioInputStream(musicFile)
     }
 }
