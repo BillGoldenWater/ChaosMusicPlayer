@@ -63,6 +63,8 @@ class ChaosMusicPlayer : JavaPlugin() {
                     .decodeFromString<MutableList<MusicInfo>>(fis.reader().readText())
                     .distinctBy { it.musicFileName }
                     .toMutableList()
+                    .filter { it.musicFile.exists() }
+                    .toMutableList()
             }
         } catch (_: Exception) {
             return mutableListOf()
