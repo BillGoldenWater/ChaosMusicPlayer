@@ -16,7 +16,8 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.system.measureTimeMillis
+import kotlin.math.roundToLong
+import kotlin.system.measureNanoTime
 
 @Suppress("unused")
 class MusicPlayer(
@@ -113,11 +114,14 @@ class MusicPlayer(
     override fun run() {
         tickWhenWaiting()
         while (running) {
-            val cost = measureTimeMillis { tick() }
-            if (!running) break
-            val waitingCost = measureTimeMillis { tickWhenWaiting() }
-            val delay = ((1000 / ticksPerSecond) - (cost + waitingCost)).coerceAtLeast(0)
-            Thread.sleep(delay)
+            val costNano = measureNanoTime {
+                tick()
+                if (!running) return@run
+                tickWhenWaiting()
+            }
+            val costMillis = costNano.toDouble() / 1000 / 1000
+            val delay = ((1000.0 / ticksPerSecond) - costMillis).coerceAtLeast(0.0)
+            Thread.sleep(delay.roundToLong())
         }
     }
 
