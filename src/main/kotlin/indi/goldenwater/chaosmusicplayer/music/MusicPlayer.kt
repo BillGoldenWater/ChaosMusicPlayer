@@ -216,6 +216,11 @@ class MusicPlayer(
         }
     }
 
+    fun getPlayedPercent(): Double = if (preload)
+        audioBuffer.position() / (audioBuffer.capacity() + 0.0)
+    else
+        0.0
+
     fun play() {
         playing = true
     }
