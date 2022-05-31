@@ -252,6 +252,10 @@ class MusicPlayer(
         }
     }
 
+    private fun stopAllPlaying() {
+        targetPlayers.forEach { it.stopAllSounds() }
+    }
+
     fun getPlayedPercent(): Double =
         if (preload)
             audioBuffer.position() / (audioBuffer.capacity() + 0.0)
@@ -263,10 +267,12 @@ class MusicPlayer(
 
     fun pause() {
         playing = false
+        stopAllPlaying()
     }
 
     fun stop() {
         running = false
+        stopAllPlaying()
     }
 
     fun reset() {
