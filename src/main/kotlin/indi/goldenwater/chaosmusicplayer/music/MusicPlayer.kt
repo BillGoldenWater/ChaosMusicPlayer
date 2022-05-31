@@ -1,5 +1,6 @@
 package indi.goldenwater.chaosmusicplayer.music
 
+import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
 import org.bukkit.Bukkit
@@ -11,24 +12,32 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.DoubleBuffer
+import java.util.logging.Logger
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.system.measureNanoTime
 
-@Suppress("unused")
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class MusicPlayer(
     private val musicFile: File,
+    private val hostPlayer: Player,
+    private val isBroadcast: Boolean = false,
+    private val broadcastRange: Double = 1.0,
     private val preload: Boolean = true,
     private val ticksPerSecond: Int = 20,
     private val maxSoundNumber: Int = 247,
     private val minimumVolume: Double = 0.001,
     private val removeLowVolumeValueInPercent: Double = 0.005,
 ) : BukkitRunnable() {
-    private val targetPlayers: MutableList<Player> = Bukkit.getServer().onlinePlayers.toMutableList()
+    private val logger: Logger = ChaosMusicPlayer.instance.logger
+
+    val listenTogether: MutableSet<Player> = mutableSetOf()
+    private val targetPlayers: MutableSet<Player> = mutableSetOf()
 
     private var audioInputStream: AudioInputStream = AudioSystem.getAudioInputStream(musicFile)
 
@@ -113,6 +122,8 @@ class MusicPlayer(
     private fun tick() {
         if (!playing) return
 
+        updateTargetPlayers()
+        if (!running) return
         playToPlayers()
     }
 
@@ -190,6 +201,36 @@ class MusicPlayer(
             }
         }
         //endregion
+    }
+
+    private fun updateTargetPlayers() {
+        targetPlayers.clear()
+
+        if (!hostPlayer.isOnline) {
+            stop()
+            logger.warning("Auto stopped, because the host player ${hostPlayer.name} is offline.")
+            return
+        }
+        if (!hostPlayer.isDead) targetPlayers.add(hostPlayer)
+
+        listenTogether.removeIf { !it.isOnline }
+        targetPlayers.addAll(listenTogether)
+
+        if (isBroadcast) {
+            val playingPlayers = targetPlayers.map { it }
+
+            val onlinePlayers = Bukkit.getServer().onlinePlayers.toMutableSet()
+            onlinePlayers.removeIf { targetPlayers.contains(it) }
+            onlinePlayers.filterTo(targetPlayers) { op ->
+                val opLoc = op.location
+                playingPlayers.find { pp ->
+                    val ppLoc = pp.location
+                    if (opLoc.world.uid.compareTo(ppLoc.world.uid) != 0) return@find false
+
+                    opLoc.distanceSquared(ppLoc) <= broadcastRange.pow(2.0)
+                } != null
+            }
+        }
     }
 
     private fun playToPlayers() {
