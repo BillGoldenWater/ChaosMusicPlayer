@@ -38,46 +38,43 @@ class MusicPlayer(
     private val sampleSize = format.sampleSizeInBits
     private val frameSize = format.frameSize
     private val isBigEndian = format.isBigEndian
+    private val encoding = format.encoding
     //endregion
 
     //region utilities
     private val framePerTick: Int = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
     private val frameBuffer: DoubleBuffer = DoubleBuffer.allocate(channelSize)
-    private val readAFrame: (ByteBuffer) -> Unit = when (sampleSize) {
-        8 -> { buffer: ByteBuffer ->
-            frameBuffer.clear()
-            for (i in 0 until channelSize) {
-                frameBuffer.put(
-                    buffer
-                        .get() / (Byte.MAX_VALUE * 1.0)
-                )
+    private val readAFrame: (ByteBuffer) -> Unit = { buffer: ByteBuffer ->
+        frameBuffer.clear()
+        for (i in 0 until channelSize) {
+            val value = when (encoding) {
+                AudioFormat.Encoding.PCM_SIGNED -> when (sampleSize) {
+                    8 -> buffer.get() / Byte.MAX_VALUE.toDouble()
+                    16 -> buffer.short / Short.MAX_VALUE.toDouble()
+                    32 -> buffer.int / Int.MAX_VALUE.toDouble()
+                    64 -> buffer.long / Long.MAX_VALUE.toDouble()
+                    else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
+                }
+                AudioFormat.Encoding.PCM_UNSIGNED -> when (sampleSize) {
+                    8 -> buffer
+                        .get()
+                        .toUByte()
+                        .toDouble() / Byte.MAX_VALUE - 1.0
+                    16 -> buffer.short
+                        .toUShort()
+                        .toDouble() / Short.MAX_VALUE - 1.0
+                    32 -> buffer.int
+                        .toUInt()
+                        .toDouble() / Int.MAX_VALUE - 1.0
+                    64 -> buffer.long
+                        .toULong()
+                        .toDouble() / Long.MAX_VALUE - 1.0
+                    else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
+                }
+                else -> throw IllegalArgumentException("Unsupported encoding $encoding")
             }
+            frameBuffer.put(value)
         }
-        16 -> { buffer: ByteBuffer ->
-            frameBuffer.clear()
-            for (i in 0 until channelSize) {
-                frameBuffer.put(
-                    buffer.short / (Short.MAX_VALUE * 1.0)
-                )
-            }
-        }
-        32 -> { buffer: ByteBuffer ->
-            frameBuffer.clear()
-            for (i in 0 until channelSize) {
-                frameBuffer.put(
-                    buffer.int / (Int.MAX_VALUE * 1.0)
-                )
-            }
-        }
-        64 -> { buffer: ByteBuffer ->
-            frameBuffer.clear()
-            for (i in 0 until channelSize) {
-                frameBuffer.put(
-                    buffer.long / (Long.MAX_VALUE * 1.0)
-                )
-            }
-        }
-        else -> throw IllegalArgumentException("Unsupported sample size $sampleSize")
     }
     //endregion
 
