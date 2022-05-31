@@ -49,6 +49,9 @@ class ChaosMusicPlayer : JavaPlugin() {
     }
 
     fun getMusicInfos(): MutableList<MusicInfo> {
+        if (!musicDataFile.exists()) {
+            return mutableListOf()
+        }
         if (!musicDataFile.isFile) {
             logger.warning("The musicInfos.json is not a file, unable to read it.")
             return mutableListOf()
