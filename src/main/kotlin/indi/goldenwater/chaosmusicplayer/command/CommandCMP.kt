@@ -6,6 +6,7 @@ import indi.goldenwater.chaosmusicplayer.utils.append
 import indi.goldenwater.chaosmusicplayer.utils.toComponent
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
+import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -29,6 +30,18 @@ object CommandCMP : CommandExecutor {
 
     private const val stop = "stop"
 
+    private const val join = "join"
+
+    private const val invite = "invite"
+
+    const val accept = "accept"
+
+    const val deny = "deny"
+
+    const val cancel = "cancel"
+
+    private const val quit = "quit"
+
     init {
         helpUsage.clickEvent(ClickEvent.runCommand("/$commandName $help"))
         helpUsageDetail.clickEvent(ClickEvent.suggestCommand("/$commandName $help "))
@@ -50,6 +63,12 @@ object CommandCMP : CommandExecutor {
                 pause -> onPause(sender)
                 resume -> onResume(sender)
                 stop -> onStop(sender)
+                join -> onJoin(sender, args.removeFirstOrNull())
+                invite -> onInvite(sender, args)
+                accept -> onAccept(sender)
+                deny -> onDeny(sender)
+                cancel -> onCancel(sender)
+                quit -> onQuit(sender)
                 else -> onUnknownUsage(sender)
             }
         }
@@ -126,5 +145,70 @@ object CommandCMP : CommandExecutor {
             return
         }
         MusicManager.stop(sender)
+    }
+
+    private fun onJoin(sender: CommandSender, targetPlayerName: String?) {
+        if (targetPlayerName == null) {
+            onUnknownUsage(sender)
+            return
+        }
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        val targetPlayer = Bukkit.getPlayer(targetPlayerName)
+        if (targetPlayer == null) {
+            sender.sendMessage("未知的玩家 $targetPlayerName")
+            return
+        }
+        MusicManager.join(sender, targetPlayer)
+    }
+
+    private fun onInvite(sender: CommandSender, targets: MutableList<String>) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+
+        targets.forEach {
+            val targetPlayer = Bukkit.getPlayer(it)
+            if (targetPlayer == null) {
+                sender.sendMessage("未知的玩家 $it")
+                return
+            }
+            MusicManager.invite(sender, targetPlayer)
+        }
+    }
+
+    private fun onAccept(sender: CommandSender) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        MusicManager.accept(sender)
+    }
+
+    private fun onDeny(sender: CommandSender) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        MusicManager.deny(sender)
+    }
+
+    private fun onCancel(sender: CommandSender) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        MusicManager.cancel(sender)
+    }
+
+    private fun onQuit(sender: CommandSender) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        MusicManager.quit(sender)
     }
 }

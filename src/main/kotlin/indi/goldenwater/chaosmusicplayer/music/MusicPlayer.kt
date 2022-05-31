@@ -26,7 +26,7 @@ import kotlin.system.measureNanoTime
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MusicPlayer(
     musicInfo: MusicInfo,
-    private val hostPlayer: Player,
+    val hostPlayer: Player,
     private val showProgressBar: Boolean = true,
     private val progressBarLength: Int = 50,
 ) : BukkitRunnable() {
