@@ -1,43 +1,41 @@
 package indi.goldenwater.chaosmusicplayer
 
-import indi.goldenwater.chaosmusicplayer.music.MusicPlayer
+import indi.goldenwater.chaosmusicplayer.command.CommandCMP
+import indi.goldenwater.chaosmusicplayer.music.MusicManager
+import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.generateResourcePack
-import org.bukkit.Bukkit
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.bukkit.plugin.java.JavaPlugin
 import java.io.File
 
+val json = Json {
+    encodeDefaults = true
+    prettyPrint = true
+}
+
 @Suppress("unused")
 class ChaosMusicPlayer : JavaPlugin() {
-    private val musicFolder: File = File(dataFolder, "musics")
-    lateinit var musicPlayer: MusicPlayer
+    private val musicDataFile: File = File(dataFolder, "musicInfos.json")
 
     init {
         instance = this
     }
 
     override fun onEnable() {
+        //region init datas
         saveDefaultConfig()
         reloadConfig()
 
+        val musicFolder = File(dataFolder, "musics")
         if (!musicFolder.exists())
             musicFolder.mkdirs()
 
-        Bukkit.getPlayer("Golden_Water")?.let {
-            musicPlayer = MusicPlayer(
-                hostPlayer = it,
-                isBroadcast = true,
-                broadcastRange = 10.0,
+        MusicManager.updateMusicFolder(musicFolder)
+        //endregion
 
-                musicFile = File(musicFolder, "朧月 - 初音ミク,湊貴大.wav"),
-                ticksPerSecond = 20,
-                minimumVolume = 0.0,
-                removeLowVolumeValueInPercent = 0.0
-            )
-            musicPlayer.runTaskAsynchronously(this)
-            Bukkit.getPlayer("WanAna_kai")?.let { p ->
-                musicPlayer.listenTogether.add(p)
-            }
-        }
+        getCommand(CommandCMP.commandName)?.setExecutor(CommandCMP)
 
         logger.info("Enabled")
     }
@@ -45,9 +43,35 @@ class ChaosMusicPlayer : JavaPlugin() {
     override fun onDisable() {
         saveConfig()
 
-        musicPlayer.stop()
+        MusicManager.stopAll()
 
         logger.info("Disabled")
+    }
+
+    fun getMusicInfos(): MutableList<MusicInfo> {
+        if (!musicDataFile.isFile) {
+            logger.warning("The musicInfos.json is not a file, unable to read it.")
+            return mutableListOf()
+        }
+        val inputStream = musicDataFile.inputStream()
+        try {
+            inputStream.use { fis ->
+                return json
+                    .decodeFromString<MutableList<MusicInfo>>(fis.reader().readText())
+                    .distinctBy { it.musicFileName }
+                    .toMutableList()
+            }
+        } catch (_: Exception) {
+            return mutableListOf()
+        }
+    }
+
+    fun setMusicInfos(musicInfos: MutableList<MusicInfo>) {
+        if (!musicDataFile.isFile) {
+            logger.warning("The musicInfos.json is not a file, all info will not be saved.")
+            return
+        }
+        musicDataFile.outputStream().writer().write(json.encodeToString(musicInfos))
     }
 
     companion object {

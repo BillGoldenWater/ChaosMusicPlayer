@@ -4,3 +4,8 @@ main: indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 authors: [ Golden_Water ]
 description: For play music in Minecraft multiplayer mode without mod or resource packs per music.
 api-version: 1.18
+commands:
+  chaosmusicplayer:
+    description: "Main command of ChaosMusicPlayer"
+    usage: "/cmp help"
+    aliases: [ "cmp","music" ]

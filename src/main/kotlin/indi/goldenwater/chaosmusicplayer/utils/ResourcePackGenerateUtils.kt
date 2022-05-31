@@ -1,8 +1,8 @@
 package indi.goldenwater.chaosmusicplayer.utils
 
+import indi.goldenwater.chaosmusicplayer.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -19,11 +19,6 @@ const val packetName = "ChaosMusicPlayer"
 const val packetNamespace = "minecraft"
 
 const val maxFrequencyNeedProvide = 20000.0
-
-val json = Json {
-    encodeDefaults = true
-    prettyPrint = true
-}
 
 //region sine wave audio files generate
 fun sineWave(frequency: Double, seconds: Double, sampleRate: Int): ByteArray {
