@@ -2,8 +2,10 @@ package indi.goldenwater.chaosmusicplayer.music
 
 import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
+import indi.goldenwater.chaosmusicplayer.type.MusicInfo
+import indi.goldenwater.chaosmusicplayer.utils.append
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
-import org.bukkit.Bukkit
+import net.kyori.adventure.text.Component
 import org.bukkit.SoundCategory
 import org.bukkit.entity.Player
 import org.bukkit.scheduler.BukkitRunnable
@@ -17,29 +19,33 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
-import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.system.measureNanoTime
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MusicPlayer(
-    private val musicFile: File,
+    musicInfo: MusicInfo,
     private val hostPlayer: Player,
-    private val isBroadcast: Boolean = false,
-    private val broadcastRange: Double = 1.0,
-    private val preload: Boolean = true,
-    private val ticksPerSecond: Int = 20,
-    private val maxSoundNumber: Int = 247,
-    private val minimumVolume: Double = 0.001,
-    private val removeLowVolumeValueInPercent: Double = 0.005,
+    private val showProgressBar: Boolean = true,
+    private val progressBarLength: Int = 50,
 ) : BukkitRunnable() {
     private val logger: Logger = ChaosMusicPlayer.instance.logger
 
     val listenTogether: MutableSet<Player> = mutableSetOf()
     private val targetPlayers: MutableSet<Player> = mutableSetOf()
 
-    private var audioInputStream: AudioInputStream = AudioSystem.getAudioInputStream(musicFile)
+    //region musicInfo
+    private val musicFile: File = musicInfo.musicFile
+    private val preload: Boolean = musicInfo.preload
+    private val ticksPerSecond: Int = musicInfo.ticksPerSecond
+    private val maxSoundNumber: Int = musicInfo.maxSoundNumber
+    private val minimumVolume: Double = musicInfo.minimumVolume
+    private val removeLowVolumeValueInPercent: Double = musicInfo.removeLowVolumeValueInPercent
+    //endregion
+
+    private var audioInputStream: AudioInputStream =
+        AudioSystem.getAudioInputStream(musicFile)
 
     //region format
     private val format: AudioFormat = audioInputStream.format
@@ -50,6 +56,11 @@ class MusicPlayer(
     private val isBigEndian = format.isBigEndian
     private val encoding = format.encoding
     //endregion
+
+    /**
+     * in second(s)
+     */
+    private val totalLength: Int = (audioInputStream.frameLength / sampleRate).roundToInt()
 
     //region utilities
     private val framePerTick: Int = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
@@ -211,35 +222,30 @@ class MusicPlayer(
             logger.warning("Auto stopped, because the host player ${hostPlayer.name} is offline.")
             return
         }
-        if (!hostPlayer.isDead) targetPlayers.add(hostPlayer)
+        targetPlayers.add(hostPlayer)
 
         listenTogether.removeIf { !it.isOnline }
         targetPlayers.addAll(listenTogether)
-
-        if (isBroadcast) {
-            val playingPlayers = targetPlayers.map { it }
-
-            val onlinePlayers = Bukkit.getServer().onlinePlayers.toMutableSet()
-            onlinePlayers.removeIf { targetPlayers.contains(it) }
-            onlinePlayers.filterTo(targetPlayers) { op ->
-                val opLoc = op.location
-                playingPlayers.find { pp ->
-                    val ppLoc = pp.location
-                    if (opLoc.world.uid.compareTo(ppLoc.world.uid) != 0) return@find false
-
-                    opLoc.distanceSquared(ppLoc) <= broadcastRange.pow(2.0)
-                } != null
-            }
-        }
     }
 
     private fun playToPlayers() {
+        val finished = (getPlayedPercent() * progressBarLength).toInt()
+        val unfinished = progressBarLength - finished
+
+        val playedLength = (getPlayedPercent() * totalLength).roundToInt()
+
+        val progressBar = Component.text()
+        progressBar.append("[${"=".repeat(finished)}${"-".repeat(unfinished)}] ")
+        progressBar.append("${playedLength / 60}:${playedLength % 60}/${totalLength / 60}:${totalLength % 60}")
+
         targetPlayers.forEach { player ->
             player.stopAllSounds()
 
             soundsNeedPlay.forEach {
                 player.playSound(player.location, it.eventName, SoundCategory.RECORDS, it.volume, it.pitch)
             }
+
+            player.sendActionBar(progressBar)
         }
     }
 
