@@ -131,10 +131,11 @@ class MusicPlayer(
     }
 
     private fun tick() {
-        if (!playing) return
-
         updateTargetPlayers()
         if (!running) return
+        updateProgressBar()
+
+        if (!playing) return
         playToPlayers()
     }
 
@@ -228,7 +229,7 @@ class MusicPlayer(
         targetPlayers.addAll(listenTogether)
     }
 
-    private fun playToPlayers() {
+    private fun updateProgressBar() {
         val finished = (getPlayedPercent() * progressBarLength).toInt()
         val unfinished = progressBarLength - finished
 
@@ -238,14 +239,16 @@ class MusicPlayer(
         progressBar.append("[${"=".repeat(finished)}${"-".repeat(unfinished)}] ")
         progressBar.append("${playedLength / 60}:${playedLength % 60}/${totalLength / 60}:${totalLength % 60}")
 
+        targetPlayers.forEach { it.sendActionBar(progressBar) }
+    }
+
+    private fun playToPlayers() {
         targetPlayers.forEach { player ->
             player.stopAllSounds()
 
             soundsNeedPlay.forEach {
                 player.playSound(player.location, it.eventName, SoundCategory.RECORDS, it.volume, it.pitch)
             }
-
-            player.sendActionBar(progressBar)
         }
     }
 
@@ -254,7 +257,7 @@ class MusicPlayer(
             audioBuffer.position() / (audioBuffer.capacity() + 0.0)
         else 0.0
 
-    fun play() {
+    fun resume() {
         playing = true
     }
 
