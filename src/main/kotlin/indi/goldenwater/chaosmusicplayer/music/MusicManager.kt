@@ -5,6 +5,11 @@ import indi.goldenwater.chaosmusicplayer.command.CommandCMP
 import indi.goldenwater.chaosmusicplayer.music.MusicManager.RequestType.Invite
 import indi.goldenwater.chaosmusicplayer.music.MusicManager.RequestType.Join
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
+import indi.goldenwater.chaosmusicplayer.utils.toCB
+import net.kyori.text.TextComponent
+import net.kyori.text.adapter.bukkit.TextAdapter
+import net.kyori.text.event.ClickEvent
+import net.kyori.text.format.TextColor
 import org.bukkit.entity.Player
 import java.io.File
 import java.io.FileFilter
@@ -82,6 +87,42 @@ object MusicManager {
         }
     }
 
+    private fun sendRequestMessage(player: Player, targetPlayer: Player, type: RequestType) {
+        val cancel = "取消".toCB()
+            .color(TextColor.RED)
+            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.cancel}"))
+        val accept = when (type) {
+            Invite -> "接受"
+            Join -> "同意"
+        }.toCB()
+            .color(TextColor.GREEN)
+            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.accept}"))
+        val deny = "拒绝".toCB()
+            .color(TextColor.RED)
+            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.deny}"))
+
+        val requestAction = when (type) {
+            Invite -> "邀请"
+            Join -> "申请"
+        }
+        val andText = if (type == Join) "和" else ""
+
+        TextAdapter.sendMessage(
+            player,
+            "${requestAction}已发送到 ${targetPlayer.name}".toCB()
+                .append(TextComponent.newline())
+                .append(cancel)
+                .build()
+        )
+        TextAdapter.sendMessage(
+            targetPlayer,
+            "${player.name} $requestAction${andText}你一起听".toCB()
+                .append(TextComponent.newline())
+                .append(accept).append(" ").append(deny)
+                .build()
+        )
+    }
+
     fun join(player: Player, targetPlayer: Player) {
         if (!isPlaying(targetPlayer)) {
             player.sendMessage("无法发送申请, 对方没有在播放")
@@ -94,19 +135,7 @@ object MusicManager {
 
         pendingRequests.add(RequestInfo(player, targetPlayer, Join))
 
-        player.sendMessage(
-            """
-            |申请已发送到 ${targetPlayer.name}
-            |取消: /${CommandCMP.commandName} ${CommandCMP.cancel}
-        """.trimMargin()
-        )
-        targetPlayer.sendMessage(
-            """
-            |${player.name} 申请和你一起听
-            |同意: /${CommandCMP.commandName} ${CommandCMP.accept}
-            |拒绝: /${CommandCMP.commandName} ${CommandCMP.deny}
-        """.trimMargin()
-        )
+        sendRequestMessage(player, targetPlayer, Join)
     }
 
     fun invite(player: Player, targetPlayer: Player) {
@@ -121,19 +150,7 @@ object MusicManager {
 
         pendingRequests.add(RequestInfo(player, targetPlayer, Invite))
 
-        player.sendMessage(
-            """
-            |邀请已发送到 ${targetPlayer.name}
-            |取消: /${CommandCMP.commandName} ${CommandCMP.cancel}
-        """.trimMargin()
-        )
-        targetPlayer.sendMessage(
-            """
-            |${player.name} 邀请你一起听
-            |接受: /${CommandCMP.commandName} ${CommandCMP.accept}
-            |拒绝: /${CommandCMP.commandName} ${CommandCMP.deny}
-        """.trimMargin()
-        )
+        sendRequestMessage(player, targetPlayer, Invite)
     }
 
     fun accept(player: Player) {
@@ -199,21 +216,27 @@ object MusicManager {
     }
 
     fun cancel(player: Player) {
-        pendingRequests
+        val sentRequests = pendingRequests
             .filter { it.from == player }
-            .forEach {
-                pendingRequests.remove(it)
-                when (it.type) {
-                    Invite -> {
-                        player.sendMessage("已取消对 ${it.from.name} 的邀请")
-                        it.from.sendMessage("${player.name} 已取消邀请")
-                    }
-                    Join -> {
-                        player.sendMessage("已取消加入 ${it.from.name} 的申请")
-                        it.from.sendMessage("${player.name} 已取消申请")
-                    }
+
+        if (sentRequests.isEmpty()) {
+            player.sendMessage("没有已发送的请求")
+            return
+        }
+
+        sentRequests.forEach {
+            pendingRequests.remove(it)
+            when (it.type) {
+                Invite -> {
+                    player.sendMessage("已取消对 ${it.from.name} 的邀请")
+                    it.from.sendMessage("${player.name} 已取消邀请")
+                }
+                Join -> {
+                    player.sendMessage("已取消加入 ${it.from.name} 的申请")
+                    it.from.sendMessage("${player.name} 已取消申请")
                 }
             }
+        }
     }
 
     fun quit(player: Player) {
@@ -222,6 +245,7 @@ object MusicManager {
             player.sendMessage("无法退出, 你并没有加入一起听")
         } else {
             playing.listenTogether.remove(player)
+            player.stopAllSounds()
             playing.hostPlayer.sendMessage("${player.name} 已退出一起听")
             player.sendMessage("已退出一起听")
         }
