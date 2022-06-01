@@ -228,12 +228,12 @@ object MusicManager {
             pendingRequests.remove(it)
             when (it.type) {
                 Invite -> {
-                    player.sendMessage("已取消对 ${it.from.name} 的邀请")
-                    it.from.sendMessage("${player.name} 已取消邀请")
+                    player.sendMessage("已取消对 ${it.target.name} 的邀请")
+                    it.target.sendMessage("${player.name} 已取消邀请")
                 }
                 Join -> {
-                    player.sendMessage("已取消加入 ${it.from.name} 的申请")
-                    it.from.sendMessage("${player.name} 已取消申请")
+                    player.sendMessage("已取消加入 ${it.target.name} 的申请")
+                    it.target.sendMessage("${player.name} 已取消申请")
                 }
             }
         }

@@ -52,7 +52,7 @@ data class MusicInfo(
                 "  推荐范围 0 ~ 0.1" +
                 "  1是当前播放的最大音量, 0是当前播放的最小音量"
     )
-    var removeLowVolumeValueInPercent: Double = 0.005,
+    var removeLowVolumeValueInPercent: Double = 0.0,
 ) {
 
     companion object {
