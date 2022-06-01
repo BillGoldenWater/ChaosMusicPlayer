@@ -124,6 +124,10 @@ object MusicManager {
     }
 
     fun join(player: Player, targetPlayer: Player) {
+        if (player.uniqueId == targetPlayer.uniqueId){
+            player.sendMessage("你无法给自己发送申请")
+            return
+        }
         if (!isPlaying(targetPlayer)) {
             player.sendMessage("无法发送申请, 对方没有在播放")
             return
@@ -139,6 +143,10 @@ object MusicManager {
     }
 
     fun invite(player: Player, targetPlayer: Player) {
+        if (player.uniqueId == targetPlayer.uniqueId){
+            player.sendMessage("你无法邀请你自己")
+            return
+        }
         if (!isPlaying(player)) {
             player.sendMessage("无法发送邀请, 你没有在播放")
             return
