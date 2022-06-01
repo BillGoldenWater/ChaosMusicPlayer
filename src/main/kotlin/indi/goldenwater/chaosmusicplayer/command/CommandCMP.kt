@@ -302,7 +302,8 @@ object CommandCMP : CommandExecutor {
         }
 
         MusicManager.modify(musicInfo)
-        sender.sendMessage("成功修改 ${musicInfo.musicFileName} 的 $attrName 为 $valueStr")
+        val attrInfo = MusicInfo.getAttrInfo(attrName)
+        sender.sendMessage("成功修改 ${musicInfo.musicFileName} 的 ${attrInfo.name} 为 $valueStr")
     }
     //endregion
 }
