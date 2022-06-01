@@ -30,6 +30,8 @@ object MusicManager {
         return musicInfos
     }
 
+    fun getPlayingMusicInfo(player: Player): MusicInfo? = musicPlaying[player]?.musicInfo
+
     fun play(player: Player, musicInfo: MusicInfo) {
         val previousPlaying = musicPlaying[player]
         val playing = MusicPlayer(
@@ -223,6 +225,17 @@ object MusicManager {
             playing.hostPlayer.sendMessage("${player.name} 已退出一起听")
             player.sendMessage("已退出一起听")
         }
+    }
+
+    fun modify(musicInfo: MusicInfo) {
+        val musicInfos = getMusics()
+        musicInfos.removeIf { it.musicFileName == musicInfo.musicFileName }
+        musicInfos.add(musicInfo)
+        ChaosMusicPlayer.instance.setMusicInfos(musicInfos)
+
+        musicPlaying.map { it.value }
+            .filter { it.musicInfo.musicFileName == musicInfo.musicFileName }
+            .forEach { it.musicInfo = musicInfo.copy() }
     }
 
     private fun isPlaying(player: Player): Boolean = musicPlaying[player] != null

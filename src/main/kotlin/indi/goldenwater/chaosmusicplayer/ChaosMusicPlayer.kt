@@ -59,24 +59,33 @@ class ChaosMusicPlayer : JavaPlugin() {
         val inputStream = musicDataFile.inputStream()
         try {
             inputStream.use { fis ->
-                return json
-                    .decodeFromString<MutableList<MusicInfo>>(fis.reader().readText())
+                val musicInfos = json
+                    .decodeFromString<List<MusicInfo>>(fis.reader().readText())
+                return musicInfos
                     .distinctBy { it.musicFileName }
-                    .toMutableList()
                     .filter { it.musicFile.exists() }
                     .toMutableList()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warning("Unable to parse musicInfos.json")
+            e.printStackTrace()
             return mutableListOf()
         }
     }
 
     fun setMusicInfos(musicInfos: MutableList<MusicInfo>) {
-        if (!musicDataFile.isFile) {
+        if (musicDataFile.exists() && !musicDataFile.isFile) {
             logger.warning("The musicInfos.json is not a file, all info will not be saved.")
             return
         }
-        musicDataFile.outputStream().writer().write(json.encodeToString(musicInfos))
+
+        try {
+            val jsonStr = json.encodeToString(musicInfos.sortedBy { it.musicFileName }.toList())
+            musicDataFile.outputStream().use { it.write(jsonStr.encodeToByteArray()) }
+        } catch (e: Exception) {
+            logger.warning("Unable to write musicInfos.json")
+            e.printStackTrace()
+        }
     }
 
     companion object {

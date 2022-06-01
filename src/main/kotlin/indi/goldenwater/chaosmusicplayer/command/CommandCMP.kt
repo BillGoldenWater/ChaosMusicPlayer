@@ -2,6 +2,7 @@ package indi.goldenwater.chaosmusicplayer.command
 
 import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.music.MusicManager
+import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.append
 import indi.goldenwater.chaosmusicplayer.utils.toComponent
 import net.kyori.adventure.text.Component
@@ -11,6 +12,7 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import kotlin.reflect.full.createType
 
 object CommandCMP : CommandExecutor {
     const val commandName = "chaosmusicplayer"
@@ -22,6 +24,7 @@ object CommandCMP : CommandExecutor {
         |   显示指令的详细用法
     """.trimMargin().toComponent()
 
+    //region operations
     private const val play = "play"
 
     private const val pause = "pause"
@@ -42,6 +45,9 @@ object CommandCMP : CommandExecutor {
 
     private const val quit = "quit"
 
+    private const val modify = "modify"
+    //endregion
+
     init {
         helpUsage.clickEvent(ClickEvent.runCommand("/$commandName $help"))
         helpUsageDetail.clickEvent(ClickEvent.suggestCommand("/$commandName $help "))
@@ -59,7 +65,8 @@ object CommandCMP : CommandExecutor {
         } else {
             when (args.removeFirst()) {
                 help -> onHelp(sender, command, args.removeFirstOrNull())
-                play -> onPlay(sender, args)
+
+                play -> onPlay(sender, args.removeFirstOrNull())
                 pause -> onPause(sender)
                 resume -> onResume(sender)
                 stop -> onStop(sender)
@@ -69,6 +76,8 @@ object CommandCMP : CommandExecutor {
                 deny -> onDeny(sender)
                 cancel -> onCancel(sender)
                 quit -> onQuit(sender)
+                modify -> onModify(sender, args)
+
                 else -> onUnknownUsage(sender)
             }
         }
@@ -82,6 +91,17 @@ object CommandCMP : CommandExecutor {
 
     private fun onOnlyPlayer(sender: CommandSender) {
         sender.sendMessage("这个指令只能由玩家使用")
+    }
+
+    /**
+     * true if no permission
+     */
+    private fun checkPermission(sender: CommandSender, permission: String): Boolean {
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage("你没有权限执行此指令")
+            return true
+        }
+        return false
     }
 
     private fun onHelp(sender: CommandSender, command: Command, targetCommand: String? = null) {
@@ -103,8 +123,9 @@ object CommandCMP : CommandExecutor {
         sender.sendMessage(message)
     }
 
-    private fun onPlay(sender: CommandSender, args: MutableList<String>) {
-        if (args.isEmpty()) {
+    //region operations
+    private fun onPlay(sender: CommandSender, musicFileName: String?) {
+        if (musicFileName == null) {
             onUnknownUsage(sender)
             return
         }
@@ -112,9 +133,9 @@ object CommandCMP : CommandExecutor {
             onOnlyPlayer(sender)
             return
         }
-        val musicFileName = args.joinToString(separator = " ")
+        val parsedMusicFileName = MusicInfo.parseMusicFileName(musicFileName)
 
-        val musicInfo = MusicManager.getMusics().find { it.musicFileName == musicFileName }
+        val musicInfo = MusicManager.getMusics().find { it.musicFileName == parsedMusicFileName }
 
         if (musicInfo == null) {
             sender.sendMessage("未知的音乐文件")
@@ -211,4 +232,77 @@ object CommandCMP : CommandExecutor {
         }
         MusicManager.quit(sender)
     }
+
+    private fun onModify(sender: CommandSender, args: MutableList<String>) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
+        if (checkPermission(sender, "chaosmusicplayer.modify")) return
+        if (args.size < 2) {
+            onUnknownUsage(sender)
+            return
+        }
+
+        val attrs = MusicInfo.getAttrs()
+
+        val musicFileName = MusicInfo.parseMusicFileName(args.first())
+        var musicInfo = MusicManager.getMusics().find { it.musicFileName == musicFileName }
+
+        if (musicInfo == null) { // 不指定音乐文件名
+            musicInfo = MusicManager.getPlayingMusicInfo(player = sender)
+            if (musicInfo == null) { // 没有正在播放
+                sender.sendMessage("未播放时必须指定音乐文件名")
+                return
+            }
+        } else if (args.size < 3) { // 指定但参数长度不足
+            onUnknownUsage(sender)
+            return
+        } else { // 指定音乐文件名
+            args.removeFirst()
+        }
+
+        val attrName = args.removeFirst()
+        val attr = attrs.find { it.name == attrName }
+        val valueStr: String = args.removeFirst()
+
+        if (attr == null) {
+            sender.sendMessage("未知的属性")
+            return
+        }
+
+        when (attr.returnType) {
+            Boolean::class.createType() -> {
+                val value = valueStr.toBooleanStrictOrNull()
+                if (value == null) {
+                    sender.sendMessage("未知的值, 需要 true 或 false")
+                    return
+                }
+                attr.setter.call(musicInfo, value)
+            }
+            Int::class.createType() -> {
+                val value = valueStr.toIntOrNull()
+                if (value == null) {
+                    sender.sendMessage("未知的值, 需要一个数字")
+                    return
+                }
+                attr.setter.call(musicInfo, value)
+            }
+            Double::class.createType() -> {
+                val value = valueStr.toDoubleOrNull()
+                if (value == null) {
+                    sender.sendMessage("未知的值, 需要一个数字")
+                    return
+                }
+                attr.setter.call(musicInfo, value)
+            }
+            String::class.createType() -> {
+                attr.setter.call(musicInfo, valueStr)
+            }
+        }
+
+        MusicManager.modify(musicInfo)
+        sender.sendMessage("成功修改 ${musicInfo.musicFileName} 的 $attrName 为 $valueStr")
+    }
+    //endregion
 }

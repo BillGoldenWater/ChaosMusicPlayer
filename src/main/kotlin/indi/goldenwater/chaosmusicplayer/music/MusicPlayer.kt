@@ -25,7 +25,7 @@ import kotlin.system.measureNanoTime
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MusicPlayer(
-    musicInfo: MusicInfo,
+    var musicInfo: MusicInfo,
     val hostPlayer: Player,
     private val showProgressBar: Boolean = true,
     private val progressBarLength: Int = 50,
@@ -36,12 +36,18 @@ class MusicPlayer(
     private val targetPlayers: MutableSet<Player> = mutableSetOf()
 
     //region musicInfo
-    private val musicFile: File = musicInfo.musicFile
-    private val preload: Boolean = musicInfo.preload
-    private val ticksPerSecond: Int = musicInfo.ticksPerSecond
-    private val maxSoundNumber: Int = musicInfo.maxSoundNumber
-    private val minimumVolume: Double = musicInfo.minimumVolume
-    private val removeLowVolumeValueInPercent: Double = musicInfo.removeLowVolumeValueInPercent
+    private val musicFile: File
+        get() = musicInfo.musicFile
+    private val preload: Boolean
+        get() = musicInfo.preload
+    private val ticksPerSecond: Int
+        get() = musicInfo.ticksPerSecond
+    private val maxSoundNumber: Int
+        get() = musicInfo.maxSoundNumber
+    private val minimumVolume: Double
+        get() = musicInfo.minimumVolume
+    private val removeLowVolumeValueInPercent: Double
+        get() = musicInfo.removeLowVolumeValueInPercent
     //endregion
 
     private var audioInputStream: AudioInputStream =
@@ -63,7 +69,8 @@ class MusicPlayer(
     private val totalLength: Int = (audioInputStream.frameLength / sampleRate).roundToInt()
 
     //region utilities
-    private val framePerTick: Int = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
+    private val framePerTick: Int
+        get() = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
     private val frameBuffer: DoubleBuffer = DoubleBuffer.allocate(channelSize)
     private val readAFrame: (ByteBuffer) -> Unit = { buffer: ByteBuffer ->
         frameBuffer.clear()

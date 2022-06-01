@@ -9,3 +9,11 @@ commands:
     description: "Main command of ChaosMusicPlayer"
     usage: "/cmp help"
     aliases: [ "cmp","music" ]
+permissions:
+  chaosmusicplayer:
+    description: "Root permission of ChaosMusicPlayer"
+    default: op
+    children:
+      chaosmusicplayer.modify:
+        description: "Allow to modify settings of music"
+        default: op
