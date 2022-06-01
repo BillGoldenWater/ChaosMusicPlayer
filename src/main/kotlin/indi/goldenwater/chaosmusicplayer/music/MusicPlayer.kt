@@ -109,10 +109,6 @@ class MusicPlayer(
     private var playing = true
     private var running = true
 
-    init {
-        if (preload) audioInputStream.read(audioBuffer.array())
-    }
-
     private fun readATick(maxBytes: Int): ByteBuffer {
         val result = tickBufferArrays.getOrPut(maxBytes) { ByteArray(maxBytes) }
 
@@ -123,6 +119,7 @@ class MusicPlayer(
     }
 
     override fun run() {
+        if (preload) audioInputStream.read(audioBuffer.array())
         tickWhenWaiting()
         while (running) {
             val costNano = measureNanoTime {
