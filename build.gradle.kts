@@ -23,6 +23,8 @@ dependencies {
 
     implementation("com.github.wendykierp:JTransforms:3.1")
 
+    implementation("net.kyori:text-adapter-bukkit:3.0.6")
+
     compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
 }
 

@@ -3,9 +3,9 @@ package indi.goldenwater.chaosmusicplayer.music
 import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
-import indi.goldenwater.chaosmusicplayer.utils.append
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
-import net.kyori.adventure.text.Component
+import net.kyori.text.TextComponent
+import net.kyori.text.adapter.bukkit.TextAdapter
 import org.bukkit.SoundCategory
 import org.bukkit.entity.Player
 import org.bukkit.scheduler.BukkitRunnable
@@ -239,11 +239,12 @@ class MusicPlayer(
 
         val playedLength = (getPlayedPercent() * totalLength).roundToInt()
 
-        val progressBar = Component.text()
+        val progressBar = TextComponent.builder()
+
         progressBar.append("[${"=".repeat(finished)}${"-".repeat(unfinished)}] ")
         progressBar.append("${playedLength / 60}:${playedLength % 60}/${totalLength / 60}:${totalLength % 60}")
 
-        targetPlayers.forEach { it.sendActionBar(progressBar) }
+        targetPlayers.forEach { TextAdapter.sendActionBar(it, progressBar.build()) }
     }
 
     private fun playToPlayers() {

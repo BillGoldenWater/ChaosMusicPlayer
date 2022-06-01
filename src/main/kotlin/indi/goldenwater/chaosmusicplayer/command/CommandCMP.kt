@@ -3,10 +3,12 @@ package indi.goldenwater.chaosmusicplayer.command
 import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.music.MusicManager
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
-import indi.goldenwater.chaosmusicplayer.utils.append
+import indi.goldenwater.chaosmusicplayer.utils.toCB
 import indi.goldenwater.chaosmusicplayer.utils.toComponent
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.event.ClickEvent
+import net.kyori.text.TextComponent
+import net.kyori.text.adapter.bukkit.TextAdapter
+import net.kyori.text.event.ClickEvent
+import net.kyori.text.event.HoverEvent
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -18,11 +20,11 @@ object CommandCMP : CommandExecutor {
     const val commandName = "chaosmusicplayer"
 
     private const val help = "help"
-    private val helpUsage = "/$commandName $help [指令] 查看用法".toComponent()
+    private val helpUsage = "/$commandName $help [指令] 查看用法".toCB()
     private val helpUsageDetail = """
         |/$commandName $help [指令]
-        |   显示指令的详细用法
-    """.trimMargin().toComponent()
+        | 显示指令的详细用法
+    """.trimMargin().toCB()
 
     //region operations
     private const val play = "play"
@@ -100,8 +102,7 @@ object CommandCMP : CommandExecutor {
     }
 
     private fun onUnknownUsage(sender: CommandSender) {
-        val message = Component.text("未知的用法, 使用 /$commandName $help 查看")
-        sender.sendMessage(message)
+        sender.sendMessage("未知的用法, 使用 /$commandName $help 查看")
     }
 
     private fun onOnlyPlayer(sender: CommandSender) {
@@ -120,7 +121,7 @@ object CommandCMP : CommandExecutor {
     }
 
     private fun onHelp(sender: CommandSender, command: Command, targetCommand: String? = null) {
-        val message = Component.text()
+        val message = TextComponent.builder()
         message.append("${ChaosMusicPlayer.instance.name} By.Golden_Water\n")
 
         if (targetCommand == null) {
@@ -135,7 +136,7 @@ object CommandCMP : CommandExecutor {
             message.append(msg)
         }
 
-        sender.sendMessage(message)
+        TextAdapter.sendMessage(sender, message.build())
     }
 
     //region operations
@@ -328,7 +329,36 @@ object CommandCMP : CommandExecutor {
     }
 
     private fun onControls(sender: CommandSender) {
+        if (sender !is Player) {
+            onOnlyPlayer(sender)
+            return
+        }
 
+        val pauseText = "暂停".toCB()
+        pauseText.clickEvent(ClickEvent.runCommand("/${commandName} $pause"))
+        pauseText.hoverEvent(HoverEvent.showText("暂停播放".toComponent()))
+
+        val resumeText = "继续".toCB()
+        resumeText.clickEvent(ClickEvent.runCommand("/${commandName} $resume"))
+        resumeText.hoverEvent(HoverEvent.showText("继续播放".toComponent()))
+
+        val stopText = "停止".toCB()
+        stopText.clickEvent(ClickEvent.runCommand("/${commandName} $stop"))
+        stopText.hoverEvent(HoverEvent.showText("停止播放".toComponent()))
+
+        val listText = "列表".toCB()
+        listText.clickEvent(ClickEvent.runCommand("/${commandName} $list"))
+        listText.hoverEvent(HoverEvent.showText("列出音乐".toComponent()))
+
+
+        val message = TextComponent.builder()
+
+        message.append(pauseText).append(" ")
+        message.append(resumeText).append(" ")
+        message.append(stopText).append(" ")
+        message.append(listText).append(" ")
+
+        TextAdapter.sendMessage(sender, message.build())
     }
 
     private fun onSettings(sender: CommandSender, musicFileName: String?) {
