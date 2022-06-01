@@ -48,6 +48,16 @@ object CommandCMP : CommandExecutor {
     private const val modify = "modify"
     //endregion
 
+    //region visualize
+    private const val list = "list"
+
+    private const val controls = "controls"
+
+    private const val settings = "settings"
+
+    private const val attrDetail = "attrDetail"
+    //endregion
+
     init {
         helpUsage.clickEvent(ClickEvent.runCommand("/$commandName $help"))
         helpUsageDetail.clickEvent(ClickEvent.suggestCommand("/$commandName $help "))
@@ -77,6 +87,11 @@ object CommandCMP : CommandExecutor {
                 cancel -> onCancel(sender)
                 quit -> onQuit(sender)
                 modify -> onModify(sender, args)
+
+                list -> onList(sender, args.removeFirstOrNull()?.toIntOrNull())
+                controls -> onControls(sender)
+                settings -> onSettings(sender, args.removeFirstOrNull())
+                attrDetail -> onAttrDetail(sender, args.removeFirstOrNull())
 
                 else -> onUnknownUsage(sender)
             }
@@ -304,6 +319,33 @@ object CommandCMP : CommandExecutor {
         MusicManager.modify(musicInfo)
         val attrInfo = MusicInfo.getAttrInfo(attrName)
         sender.sendMessage("成功修改 ${musicInfo.musicFileName} 的 ${attrInfo.name} 为 $valueStr")
+    }
+    //endregion
+
+    //region visualize
+    private fun onList(sender: CommandSender, pageNum: Int?) {
+
+    }
+
+    private fun onControls(sender: CommandSender) {
+
+    }
+
+    private fun onSettings(sender: CommandSender, musicFileName: String?) {
+
+    }
+
+    private fun onAttrDetail(sender: CommandSender, attrName: String?) {
+        if (attrName == null) {
+            onUnknownUsage(sender)
+            return
+        }
+
+        val attrInfo = MusicInfo.getAttrInfo(attrName)
+        sender.sendMessage(
+            "属性: ${attrInfo.name}" +
+                    if (attrInfo.description.isNotBlank()) "\n  ${attrInfo.description}" else ""
+        )
     }
     //endregion
 }
