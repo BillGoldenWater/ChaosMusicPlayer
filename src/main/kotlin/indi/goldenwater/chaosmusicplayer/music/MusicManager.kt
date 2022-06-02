@@ -94,16 +94,16 @@ object MusicManager {
     private fun sendRequestMessage(player: Player, targetPlayer: Player, type: RequestType) {
         val cancel = "取消".toCB()
             .color(TextColor.RED)
-            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.cancel}"))
+            .clickEvent(ClickEvent.runCommand(CommandCMP.getCmd(CommandCMP::onCancel)))
         val accept = when (type) {
             Invite -> "接受"
             Join -> "同意"
         }.toCB()
             .color(TextColor.GREEN)
-            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.accept}"))
+            .clickEvent(ClickEvent.runCommand(CommandCMP.getCmd(CommandCMP::onAccept)))
         val deny = "拒绝".toCB()
             .color(TextColor.RED)
-            .clickEvent(ClickEvent.runCommand("/${CommandCMP.commandName} ${CommandCMP.deny}"))
+            .clickEvent(ClickEvent.runCommand(CommandCMP.getCmd(CommandCMP::onDeny)))
 
         val requestAction = when (type) {
             Invite -> "邀请"

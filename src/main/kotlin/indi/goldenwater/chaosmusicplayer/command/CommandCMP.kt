@@ -15,97 +15,65 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import kotlin.reflect.KFunction
 import kotlin.reflect.full.createType
+import kotlin.reflect.full.memberFunctions
 
+@Suppress("unused")
 object CommandCMP : CommandExecutor {
     const val commandName = "chaosmusicplayer"
 
-    private const val help = "help"
-    private val helpUsage = "/$commandName $help [指令] 查看用法".toCB()
-    private val helpUsageDetail = """
-        |/$commandName $help [指令]
-        | 显示指令的详细用法
-    """.trimMargin().toCB()
-
-    //region operations
-    private const val play = "play"
-
-    private const val pause = "pause"
-
-    private const val resume = "resume"
-
-    private const val stop = "stop"
-
-    private const val join = "join"
-
-    private const val invite = "invite"
-
-    const val accept = "accept"
-
-    const val deny = "deny"
-
-    const val cancel = "cancel"
-
-    private const val quit = "quit"
-
-    private const val modify = "modify"
-    private const val modifyPermission = "chaosmusicplayer.modify"
-    //endregion
-
-    //region visualize
-    private const val list = "list"
-
-    private const val controls = "controls"
-
-    private const val settings = "settings"
-    private const val settingsPermission = "chaosmusicplayer.settings"
-
-    private const val attrDetail = "attrDetail"
-    //endregion
+    val commandHandlers: List<KFunction<*>>
 
     init {
-        helpUsage.clickEvent(ClickEvent.runCommand("/$commandName $help"))
-        helpUsageDetail.clickEvent(ClickEvent.suggestCommand("/$commandName $help "))
+        commandHandlers = CommandCMP::class.memberFunctions
+            .filter { p -> p.annotations.any { it is CommandHandler } }
     }
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         val listArgs = mutableListOf<String>()
         listArgs.addAll(args)
-        return this.onCommand(sender, command, listArgs)
+        return this.onCommand(sender, listArgs)
     }
 
-    private fun onCommand(sender: CommandSender, command: Command, args: MutableList<String>): Boolean {
+    private fun onCommand(sender: CommandSender, args: MutableList<String>): Boolean {
         if (args.isEmpty()) {
-            onHelp(sender, command)
+            onHelp(sender, mutableListOf())
         } else {
-            when (args.removeFirst()) {
-                help -> onHelp(sender, command, args.removeFirstOrNull())
+            val cmd = args.removeFirst()
+            val handler = getCommandHandler(cmd)
 
-                play -> onPlay(sender, args.removeFirstOrNull())
-                pause -> onPause(sender)
-                resume -> onResume(sender)
-                stop -> onStop(sender)
-                join -> onJoin(sender, args.removeFirstOrNull())
-                invite -> onInvite(sender, args)
-                accept -> onAccept(sender)
-                deny -> onDeny(sender)
-                cancel -> onCancel(sender)
-                quit -> onQuit(sender)
-                modify -> onModify(sender, args)
+            if (handler == null) {
+                onUnknownUsage(sender)
+                return true
+            }
 
-                list -> onList(sender, args.removeFirstOrNull()?.toIntOrNull())
-                controls -> onControls(sender)
-                settings -> onSettings(sender, args.removeFirstOrNull())
-                attrDetail -> onAttrDetail(sender, args.removeFirstOrNull())
+            val commandInfo = getCommandInfo(handler)
+            if (commandInfo.minimumArgNum > args.size) {
+                onUnknownUsage(sender)
+                return true
+            }
+            if (commandInfo.onlyPlayer && sender !is Player) {
+                onOnlyPlayer(sender)
+                return true
+            }
+            if (checkPermission(sender, handler)) return true
 
-                else -> onUnknownUsage(sender)
+            if (handler.parameters.size == 3) {
+                handler.call(CommandCMP, sender, args)
+            } else {
+                handler.call(CommandCMP, sender)
             }
         }
         return true
     }
 
     private fun onUnknownUsage(sender: CommandSender) {
-        sender.sendMessage("未知的用法, 使用 /$commandName $help 查看")
+        val helpCmd = getCmd(this::onHelp)
+        val message = "未知的用法, 使用 $helpCmd 查看".toCB()
+            .hoverEvent(HoverEvent.showText("点击获取用法".toComponent()))
+            .clickEvent(ClickEvent.runCommand(helpCmd))
+        TextAdapter.sendMessage(sender, message.build())
     }
 
     private fun onOnlyPlayer(sender: CommandSender) {
@@ -115,43 +83,90 @@ object CommandCMP : CommandExecutor {
     /**
      * true if no permission
      */
-    private fun checkPermission(sender: CommandSender, permission: String): Boolean {
-        if (!sender.hasPermission(permission)) {
+    private fun checkPermission(sender: CommandSender, commandHandler: KFunction<*>): Boolean {
+        if (!hasPermission(sender, commandHandler)) {
             sender.sendMessage("你没有权限执行此指令")
             return true
         }
         return false
     }
 
-    private fun onHelp(sender: CommandSender, command: Command, targetCommand: String? = null) {
-        val message = TextComponent.builder()
-        message.append("${ChaosMusicPlayer.instance.name} By.Golden_Water\n")
+    private fun getHelpUsage(commandInfo: CommandHandler, detail: Boolean = false): TextComponent.Builder {
+        val usage = TextComponent.builder()
 
-        if (targetCommand == null) {
-            message.append("指令别名: ${command.aliases.joinToString(separator = " ")}\n")
-            message.append(helpUsage)
+        usage.append("/$commandName ${commandInfo.command}")
+        if (commandInfo.argumentsInfo.isNotBlank()) {
+            usage
+                .append(TextComponent.space())
+                .append(commandInfo.argumentsInfo)
+        }
+        if (!detail) {
+            usage
+                .append(TextComponent.space())
+                .append(commandInfo.description)
         } else {
-            val msg = when (targetCommand) {
-                help -> helpUsageDetail
+            usage.append(TextComponent.newline())
+            commandInfo.descriptionDetail.lines().forEach { usage.append("  $it") }
+        }
 
-                else -> helpUsageDetail
+        val handler = getCommandHandler(commandInfo)
+        if (commandInfo.minimumArgNum == 0) {
+            usage.clickEvent(ClickEvent.runCommand(getCmd(handler)))
+                .hoverEvent(HoverEvent.showText("点击执行".toComponent()))
+        } else {
+            usage.clickEvent(ClickEvent.suggestCommand("${getCmd(handler)} "))
+                .hoverEvent(HoverEvent.showText("点击补全指令".toComponent()))
+        }
+
+        return usage
+    }
+
+    @CommandHandler(
+        "help", argumentsInfo = "[指令]", description = "查看用法",
+        descriptionDetail = "显示指令的详细用法"
+    )
+    fun onHelp(sender: CommandSender, args: MutableList<String>) {
+        val message = TextComponent.builder()
+        message.append("${ChaosMusicPlayer.instance.name} By.Golden_Water")
+
+        val targetCommand = args.removeFirstOrNull()
+
+        if (targetCommand == null || targetCommand.isBlank()) {
+            message
+                .append(TextComponent.newline())
+                .append("指令别名: cmp, music")
+
+            commandHandlers.forEach {
+                val info = getCommandInfo(it)
+                if (!hasPermission(sender, it)) return@forEach
+
+                message
+                    .append(TextComponent.newline())
+                    .append(getHelpUsage(info))
             }
-            message.append(msg)
+        } else {
+            val handler = getCommandHandler(targetCommand)
+
+            if (handler == null) {
+                sender.sendMessage("未知的命令 $targetCommand")
+                return
+            }
+
+            val info = getCommandInfo(handler)
+
+            message
+                .append(TextComponent.newline())
+                .append(getHelpUsage(info, detail = true))
         }
 
         TextAdapter.sendMessage(sender, message.build())
     }
 
     //region operations
-    private fun onPlay(sender: CommandSender, musicFileName: String?) {
-        if (musicFileName == null) {
-            onUnknownUsage(sender)
-            return
-        }
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
+    @CommandHandler("play", minimumArgNum = 1, onlyPlayer = true)
+    fun onPlay(sender: Player, args: MutableList<String>) {
+        val musicFileName = args.first()
+
         val parsedMusicFileName = MusicInfo.parseMusicFileName(musicFileName)
 
         val musicInfo = MusicManager.getMusics().find { it.musicFileName == parsedMusicFileName }
@@ -163,39 +178,25 @@ object CommandCMP : CommandExecutor {
         }
     }
 
-    private fun onPause(sender: CommandSender) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
+    @CommandHandler("pause", onlyPlayer = true)
+    fun onPause(sender: Player) {
         MusicManager.pause(sender)
     }
 
-    private fun onResume(sender: CommandSender) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
+    @CommandHandler("resume", onlyPlayer = true)
+    fun onResume(sender: Player) {
         MusicManager.resume(sender)
     }
 
-    private fun onStop(sender: CommandSender) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
+    @CommandHandler("stop", onlyPlayer = true)
+    fun onStop(sender: Player) {
         MusicManager.stop(sender)
     }
 
-    private fun onJoin(sender: CommandSender, targetPlayerName: String?) {
-        if (targetPlayerName == null) {
-            onUnknownUsage(sender)
-            return
-        }
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
+    @CommandHandler("join", minimumArgNum = 1, onlyPlayer = true)
+    fun onJoin(sender: Player, args: MutableList<String>) {
+        val targetPlayerName = args.removeFirst()
+
         val targetPlayer = Bukkit.getPlayer(targetPlayerName)
         if (targetPlayer == null) {
             sender.sendMessage("未知的玩家 $targetPlayerName")
@@ -204,13 +205,9 @@ object CommandCMP : CommandExecutor {
         MusicManager.join(sender, targetPlayer)
     }
 
-    private fun onInvite(sender: CommandSender, targets: MutableList<String>) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
-
-        targets.forEach {
+    @CommandHandler("invite", minimumArgNum = 1, onlyPlayer = true)
+    fun onInvite(sender: Player, args: MutableList<String>) {
+        args.forEach {
             val targetPlayer = Bukkit.getPlayer(it)
             if (targetPlayer == null) {
                 sender.sendMessage("未知的玩家 $it")
@@ -220,7 +217,8 @@ object CommandCMP : CommandExecutor {
         }
     }
 
-    private fun onAccept(sender: CommandSender) {
+    @CommandHandler("accept")
+    fun onAccept(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
             return
@@ -228,7 +226,8 @@ object CommandCMP : CommandExecutor {
         MusicManager.accept(sender)
     }
 
-    private fun onDeny(sender: CommandSender) {
+    @CommandHandler("deny")
+    fun onDeny(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
             return
@@ -236,7 +235,8 @@ object CommandCMP : CommandExecutor {
         MusicManager.deny(sender)
     }
 
-    private fun onCancel(sender: CommandSender) {
+    @CommandHandler("cancel")
+    fun onCancel(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
             return
@@ -244,7 +244,8 @@ object CommandCMP : CommandExecutor {
         MusicManager.cancel(sender)
     }
 
-    private fun onQuit(sender: CommandSender) {
+    @CommandHandler("quit")
+    fun onQuit(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
             return
@@ -252,17 +253,8 @@ object CommandCMP : CommandExecutor {
         MusicManager.quit(sender)
     }
 
-    private fun onModify(sender: CommandSender, args: MutableList<String>) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
-        if (checkPermission(sender, modifyPermission)) return
-        if (args.size < 2) {
-            onUnknownUsage(sender)
-            return
-        }
-
+    @CommandHandler("modify", permission = "chaosmusicplayer.modify", minimumArgNum = 2, onlyPlayer = true)
+    fun onModify(sender: Player, args: MutableList<String>) {
         val attrs = MusicInfo.getAttrs()
 
         val musicFileName = MusicInfo.parseMusicFileName(args.first())
@@ -329,8 +321,9 @@ object CommandCMP : CommandExecutor {
     //region visualize
     private const val itemPerPage = 10
 
-    private fun onList(sender: CommandSender, pageNumber: Int?) {
-        val pageNum = pageNumber ?: 1
+    @CommandHandler("list")
+    fun onList(sender: CommandSender, args: MutableList<String>) {
+        val pageNum = args.removeFirstOrNull()?.toIntOrNull() ?: 1
         val pageIndex = pageNum - 1
         val musicInfos = MusicManager.getMusics()
         var i = 0
@@ -346,7 +339,8 @@ object CommandCMP : CommandExecutor {
 
         //region header
         val pageNumText = pageNum.toString().toCB().color(TextColor.AQUA)
-        val message = TextComponent.builder()
+        val message = TextComponent
+            .builder()
             .append("第")
             .append(TextComponent.space())
             .append(pageNumText)
@@ -357,16 +351,19 @@ object CommandCMP : CommandExecutor {
         //region body
         pages[pageIndex]?.forEach {
             val fileName = MusicInfo.removeFileNameSpaces(it.musicFileName)
-            val playText = "播放".toCB()
+            val playText = "播放"
+                .toCB()
                 .color(TextColor.GRAY)
                 .hoverEvent(HoverEvent.showText("点击播放".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $play $fileName"))
-            val settingsText = "设置".toCB()
+                .clickEvent(ClickEvent.runCommand(getCmd(this::onPlay, fileName)))
+            val settingsText = "设置"
+                .toCB()
                 .color(TextColor.GRAY)
                 .hoverEvent(HoverEvent.showText("点击查看设置".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $settings $fileName"))
+                .clickEvent(ClickEvent.runCommand(getCmd(this::onSettings, fileName)))
 
-            val musicMsg = TextComponent.builder()
+            val musicMsg = TextComponent
+                .builder()
                 .append(it.displayName)
                 .append(TextComponent.space())
                 .append("[")
@@ -387,27 +384,26 @@ object CommandCMP : CommandExecutor {
         val hasPrevious = pages.containsKey(previousIndex)
         val hasNext = pages.containsKey(nextIndex)
 
-        val previousPage = "上一页".toCB()
-            .color(if (hasPrevious) TextColor.GRAY else TextColor.DARK_GRAY)
-        val nextPage = "下一页".toCB()
-            .color(if (hasNext) TextColor.GRAY else TextColor.DARK_GRAY)
+        val previousPage = "上一页".toCB().color(if (hasPrevious) TextColor.GRAY else TextColor.DARK_GRAY)
+        val nextPage = "下一页".toCB().color(if (hasNext) TextColor.GRAY else TextColor.DARK_GRAY)
 
         if (hasPrevious) {
             previousPage
                 .hoverEvent(HoverEvent.showText("前往上一页".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $list ${previousIndex + 1}"))
+                .clickEvent(ClickEvent.runCommand(getCmd(this::onList, (previousIndex + 1).toString())))
         } else {
             previousPage.hoverEvent(HoverEvent.showText("没有上一页".toComponent()))
         }
         if (hasNext) {
             nextPage
                 .hoverEvent(HoverEvent.showText("前往下一页".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $list ${nextIndex + 1}"))
+                .clickEvent(ClickEvent.runCommand(getCmd(this::onList, (nextIndex + 1).toString())))
         } else {
             nextPage.hoverEvent(HoverEvent.showText("没有下一页".toComponent()))
         }
 
-        val footer = TextComponent.builder()
+        val footer = TextComponent
+            .builder()
             .append("[")
             .append(previousPage)
             .append("]")
@@ -418,34 +414,28 @@ object CommandCMP : CommandExecutor {
             .append(nextPage)
             .append("]")
 
-        message
-            .append(TextComponent.newline())
-            .append(footer)
+        message.append(TextComponent.newline()).append(footer)
         //endregion
 
         TextAdapter.sendMessage(sender, message.build())
     }
 
-    private fun onControls(sender: CommandSender) {
-        if (sender !is Player) {
-            onOnlyPlayer(sender)
-            return
-        }
-
+    @CommandHandler("controls", onlyPlayer = true)
+    fun onControls(sender: CommandSender) {
         val pauseText = "暂停".toCB()
-        pauseText.clickEvent(ClickEvent.runCommand("/${commandName} $pause"))
+        pauseText.clickEvent(ClickEvent.runCommand("/${commandName} ${getCommandInfo(this::onPause).command}"))
         pauseText.hoverEvent(HoverEvent.showText("暂停播放".toComponent()))
 
         val resumeText = "继续".toCB()
-        resumeText.clickEvent(ClickEvent.runCommand("/${commandName} $resume"))
+        resumeText.clickEvent(ClickEvent.runCommand(getCmd(this::onResume)))
         resumeText.hoverEvent(HoverEvent.showText("继续播放".toComponent()))
 
         val stopText = "停止".toCB()
-        stopText.clickEvent(ClickEvent.runCommand("/${commandName} $stop"))
+        stopText.clickEvent(ClickEvent.runCommand(getCmd(this::onStop)))
         stopText.hoverEvent(HoverEvent.showText("停止播放".toComponent()))
 
         val listText = "列表".toCB()
-        listText.clickEvent(ClickEvent.runCommand("/${commandName} $list"))
+        listText.clickEvent(ClickEvent.runCommand(getCmd(this::onList)))
         listText.hoverEvent(HoverEvent.showText("列出音乐".toComponent()))
 
 
@@ -459,8 +449,9 @@ object CommandCMP : CommandExecutor {
         TextAdapter.sendMessage(sender, message.build())
     }
 
-    private fun onSettings(sender: CommandSender, musicFileName: String?) {
-        if (checkPermission(sender, settingsPermission)) return
+    @CommandHandler("settings", permission = "chaosmusicplayer.settings")
+    fun onSettings(sender: CommandSender, args: MutableList<String>) {
+        val musicFileName = args.removeFirstOrNull()
 
         val musicInfo: MusicInfo
 
@@ -501,12 +492,11 @@ object CommandCMP : CommandExecutor {
                 .color(TextColor.GRAY)
                 .hoverEvent(HoverEvent.showText("点击补全修改命令".toComponent()))
                 .clickEvent(
-                    ClickEvent.suggestCommand(
-                        "/$commandName $modify $fileNameWithoutSpace ${it.name} $valueStr"
-                    )
+                    ClickEvent.suggestCommand(getCmd(this::onModify, fileNameWithoutSpace, it.name, valueStr))
                 )
 
-            val attrMessage = "属性: ".toCB()
+            val attrMessage = "属性: "
+                .toCB()
                 .append(attrInfo.name.toCB().color(TextColor.LIGHT_PURPLE))
                 .append(", 当前: ")
                 .append(valueStr.toCB().color(TextColor.AQUA))
@@ -514,32 +504,66 @@ object CommandCMP : CommandExecutor {
                 .append("[")
                 .append(detailText)
                 .append("]")
-            if (sender.hasPermission(modifyPermission))
-                attrMessage
-                    .append(TextComponent.space())
-                    .append("[")
-                    .append(modifyText)
-                    .append("]")
+            if (hasPermission(sender, this::onModify)) attrMessage
+                .append(TextComponent.space())
+                .append("[")
+                .append(modifyText)
+                .append("]")
 
-            message
-                .append(TextComponent.newline())
-                .append(attrMessage)
+            message.append(TextComponent.newline()).append(attrMessage)
         }
 
         TextAdapter.sendMessage(sender, message.build())
     }
+    //endregion
 
-    private fun onAttrDetail(sender: CommandSender, attrName: String?) {
-        if (attrName == null) {
-            onUnknownUsage(sender)
-            return
+    //region commandInfo
+    @Target(AnnotationTarget.FUNCTION)
+    annotation class CommandHandler(
+        val command: String,
+        val permission: String = "",
+        val minimumArgNum: Int = 0,
+        val onlyPlayer: Boolean = false,
+        val argumentsInfo: String = "",
+        val description: String = "",
+        val descriptionDetail: String = "",
+    )
+
+    private fun getCommandInfo(commandHandler: KFunction<*>): CommandHandler {
+        return (
+                commandHandler.annotations.find { it is CommandHandler }
+                    ?: throw IllegalArgumentException("${commandHandler.name} is not a command handler.")
+                ) as CommandHandler
+    }
+
+    private fun getCmdName(commandHandler: KFunction<*>): String {
+        return getCommandInfo(commandHandler).command
+    }
+
+    fun getCmd(commandHandler: KFunction<*>, vararg args: String): String {
+        val cmdName = getCmdName(commandHandler)
+        val argsStr = if (args.isNotEmpty()) " ${args.joinToString(separator = " ")}" else ""
+        return "/$commandName $cmdName$argsStr"
+    }
+
+    private fun hasPermission(sender: CommandSender, commandHandler: KFunction<*>): Boolean {
+        val perm = getPermission(commandHandler)
+        return perm.isBlank() || sender.hasPermission(perm)
+    }
+
+    private fun getCommandHandler(command: String): KFunction<*>? {
+        return commandHandlers.find { handler ->
+            getCommandInfo(handler).command == command
         }
+    }
 
-        val attrInfo = MusicInfo.getAttrInfo(attrName)
-        sender.sendMessage(
-            "属性: ${attrInfo.name}" +
-                    if (attrInfo.description.isNotBlank()) "\n  ${attrInfo.description}" else ""
-        )
+    private fun getCommandHandler(commandInfo: CommandHandler): KFunction<*> {
+        return commandHandlers.find { getCommandInfo(it) == commandInfo }
+            ?: throw IllegalArgumentException("${commandInfo.command} is not exists.")
+    }
+
+    private fun getPermission(commandHandler: KFunction<*>): String {
+        return getCommandInfo(commandHandler).permission
     }
     //endregion
 }
