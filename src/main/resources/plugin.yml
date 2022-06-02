@@ -17,3 +17,6 @@ permissions:
       chaosmusicplayer.modify:
         description: "Allow to modify settings of music"
         default: op
+      chaosmusicplayer.settings:
+        description: "Allow to see all settings of music"
+        default: true

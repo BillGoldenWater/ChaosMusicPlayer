@@ -9,6 +9,7 @@ import net.kyori.text.TextComponent
 import net.kyori.text.adapter.bukkit.TextAdapter
 import net.kyori.text.event.ClickEvent
 import net.kyori.text.event.HoverEvent
+import net.kyori.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -48,6 +49,7 @@ object CommandCMP : CommandExecutor {
     private const val quit = "quit"
 
     private const val modify = "modify"
+    private const val modifyPermission = "chaosmusicplayer.modify"
     //endregion
 
     //region visualize
@@ -56,6 +58,7 @@ object CommandCMP : CommandExecutor {
     private const val controls = "controls"
 
     private const val settings = "settings"
+    private const val settingsPermission = "chaosmusicplayer.settings"
 
     private const val attrDetail = "attrDetail"
     //endregion
@@ -254,7 +257,7 @@ object CommandCMP : CommandExecutor {
             onOnlyPlayer(sender)
             return
         }
-        if (checkPermission(sender, "chaosmusicplayer.modify")) return
+        if (checkPermission(sender, modifyPermission)) return
         if (args.size < 2) {
             onUnknownUsage(sender)
             return
@@ -362,7 +365,74 @@ object CommandCMP : CommandExecutor {
     }
 
     private fun onSettings(sender: CommandSender, musicFileName: String?) {
+        if (checkPermission(sender, settingsPermission)) return
 
+        val musicInfo: MusicInfo
+
+        if (musicFileName == null) {
+            if (sender !is Player) {
+                sender.sendMessage("非玩家执行时必须提供文件名")
+                return
+            } else {
+                val info = MusicManager.getPlayingMusicInfo(sender)
+                if (info == null) {
+                    sender.sendMessage("未播放时必须提供文件名")
+                    return
+                }
+                musicInfo = info
+            }
+        } else {
+            val fileName = MusicInfo.parseMusicFileName(musicFileName)
+            val info = MusicManager.getMusics().find { it.musicFileName == fileName }
+            if (info == null) {
+                sender.sendMessage("未知的音乐文件")
+                return
+            }
+            musicInfo = info
+        }
+
+        val message = "${musicInfo.musicFileName} 的设置项".toCB().append(TextComponent.newline())
+
+        val attrs = MusicInfo.getAttrs()
+        val attrSize = attrs.size
+        attrs.forEachIndexed { i, v ->
+            val attrInfo = MusicInfo.getAttrInfo(v.name)
+            val valueStr = v.getter.call(musicInfo).toString()
+
+            val detailText = "详情".toCB()
+                .color(TextColor.GRAY)
+                .hoverEvent(HoverEvent.showText("点击查看详情".toComponent()))
+                .clickEvent(ClickEvent.runCommand("/$commandName $attrDetail ${v.name}"))
+            val fileNameWithoutSpace = MusicInfo.removeFileNameSpaces(musicInfo.musicFileName)
+            val modifyText = "修改".toCB()
+                .color(TextColor.GRAY)
+                .hoverEvent(HoverEvent.showText("点击补全修改命令".toComponent()))
+                .clickEvent(
+                    ClickEvent.suggestCommand(
+                        "/$commandName $modify $fileNameWithoutSpace ${v.name} $valueStr"
+                    )
+                )
+
+            val attrMessage = "属性: ".toCB()
+                .append(attrInfo.name.toCB().color(TextColor.LIGHT_PURPLE))
+                .append(", 当前: ")
+                .append(valueStr.toCB().color(TextColor.AQUA))
+                .append("; ")
+            attrMessage
+                .append("[")
+                .append(detailText)
+                .append("]")
+                .append(TextComponent.space())
+            if (sender.hasPermission(modifyPermission))
+                attrMessage.append("[").append(modifyText).append("]").append(TextComponent.space())
+
+            message.append(attrMessage)
+            if (i + 1 < attrSize) {
+                message.append(TextComponent.newline())
+            }
+        }
+
+        TextAdapter.sendMessage(sender, message.build())
     }
 
     private fun onAttrDetail(sender: CommandSender, attrName: String?) {
