@@ -24,6 +24,10 @@ object MusicManager {
         val musicFiles = musicFolder.listFiles(FileFilter { it.extension == "wav" })?.toMutableList()
         val musicInfos = ChaosMusicPlayer.instance.getMusicInfos()
 
+        musicInfos.removeIf { info ->
+            musicFiles?.find { it.name == info.musicFileName } == null
+        }
+
         musicFiles?.removeIf { file ->
             musicInfos.find { it.musicFile.canonicalPath == file.canonicalPath } != null
         }
@@ -124,7 +128,7 @@ object MusicManager {
     }
 
     fun join(player: Player, targetPlayer: Player) {
-        if (player.uniqueId == targetPlayer.uniqueId){
+        if (player.uniqueId == targetPlayer.uniqueId) {
             player.sendMessage("你无法给自己发送申请")
             return
         }
@@ -143,7 +147,7 @@ object MusicManager {
     }
 
     fun invite(player: Player, targetPlayer: Player) {
-        if (player.uniqueId == targetPlayer.uniqueId){
+        if (player.uniqueId == targetPlayer.uniqueId) {
             player.sendMessage("你无法邀请你自己")
             return
         }
