@@ -18,6 +18,7 @@ val json = Json {
 @Suppress("unused")
 class ChaosMusicPlayer : JavaPlugin() {
     private val musicDataFile: File = File(dataFolder, "musicInfos.json")
+    private var musicDatas: List<MusicInfo> = mutableListOf()
 
     init {
         instance = this
@@ -33,6 +34,7 @@ class ChaosMusicPlayer : JavaPlugin() {
             musicFolder.mkdirs()
 
         MusicManager.updateMusicFolder(musicFolder)
+        loadMusicInfos()
         //endregion
 
         getCommand(CommandCMP.commandName)?.setExecutor(CommandCMP)
@@ -42,6 +44,7 @@ class ChaosMusicPlayer : JavaPlugin() {
 
     override fun onDisable() {
         saveConfig()
+        saveMusicInfos()
 
         MusicManager.stopAll()
 
@@ -49,38 +52,52 @@ class ChaosMusicPlayer : JavaPlugin() {
     }
 
     fun getMusicInfos(): MutableList<MusicInfo> {
+        return musicDatas.toMutableList()
+    }
+
+    fun setMusicInfos(musicInfos: MutableList<MusicInfo>) {
+        musicDatas = musicInfos
+                .distinctBy { it.musicFileName }
+                .filter { it.musicFile.exists() }
+                .sortedBy { it.musicFileName }
+    }
+
+    private fun loadMusicInfos() {
         if (!musicDataFile.exists()) {
-            return mutableListOf()
+            musicDatas = mutableListOf()
+            return
         }
         if (!musicDataFile.isFile) {
             logger.warning("The musicInfos.json is not a file, unable to read it.")
-            return mutableListOf()
+            musicDatas = mutableListOf()
+            return
         }
         val inputStream = musicDataFile.inputStream()
         try {
             inputStream.use { fis ->
                 val musicInfos = json
                     .decodeFromString<List<MusicInfo>>(fis.reader().readText())
-                return musicInfos
+                musicDatas = musicInfos
                     .distinctBy { it.musicFileName }
                     .filter { it.musicFile.exists() }
-                    .toMutableList()
+                return
             }
         } catch (e: Exception) {
             logger.warning("Unable to parse musicInfos.json")
             e.printStackTrace()
-            return mutableListOf()
+            musicDatas = mutableListOf()
+            return
         }
     }
 
-    fun setMusicInfos(musicInfos: MutableList<MusicInfo>) {
+    private fun saveMusicInfos() {
         if (musicDataFile.exists() && !musicDataFile.isFile) {
             logger.warning("The musicInfos.json is not a file, all info will not be saved.")
             return
         }
 
         try {
-            val jsonStr = json.encodeToString(musicInfos.sortedBy { it.musicFileName }.toList())
+            val jsonStr = json.encodeToString(musicDatas)
             musicDataFile.outputStream().use { it.write(jsonStr.encodeToByteArray()) }
         } catch (e: Exception) {
             logger.warning("Unable to write musicInfos.json")
