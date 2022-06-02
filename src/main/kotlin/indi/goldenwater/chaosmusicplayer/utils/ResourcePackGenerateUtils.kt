@@ -181,7 +181,7 @@ fun writeSoundsJson(file: File) {
         soundsJson[getSineWaveSoundEventNameWithoutNameSpace(frequency)] = soundObject
     }
 
-    file.writeText(json.encodeToString(soundsJson))
+    file.writeText(json.encodeToString(soundsJson.toMap()))
 }
 
 fun copySineWaveFiles(sourceDir: File, targetDir: File) {
@@ -237,10 +237,12 @@ fun generateResourcePack() {
     generateSineWaveFiles(sineWaves)
     transCodeToOgg(sineWaves)
 
+    println("creating resourcepack")
     createPack(packSource, sineWaves)
     //endregion
 
     //region packToOutput
+    println("packaging")
     val output = File(workspace, "output")
     output.mkdir()
     val resourcePackOutput = File(output, "${packetName}.zip")
