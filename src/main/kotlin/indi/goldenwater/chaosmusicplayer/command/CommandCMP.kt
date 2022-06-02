@@ -336,7 +336,10 @@ object CommandCMP : CommandExecutor {
         var i = 0
         val pages = musicInfos.groupBy { (i++) / itemPerPage }
 
-        if (!pages.containsKey(pageIndex)) {
+        if (musicInfos.size == 0) {
+            sender.sendMessage("没有音乐可供列出")
+            return
+        } else if (!pages.containsKey(pageIndex)) {
             sender.sendMessage("未知的页数")
             return
         }
