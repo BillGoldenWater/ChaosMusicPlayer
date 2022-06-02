@@ -283,7 +283,7 @@ object CommandCMP : CommandExecutor {
 
         val attrName = args.removeFirst()
         val attr = attrs.find { it.name == attrName }
-        val valueStr: String = args.removeFirst()
+        val valueStr: String = args.joinToString(separator = " ")
 
         if (attr == null) {
             sender.sendMessage("未知的属性")
@@ -327,8 +327,100 @@ object CommandCMP : CommandExecutor {
     //endregion
 
     //region visualize
-    private fun onList(sender: CommandSender, pageNum: Int?) {
+    private const val itemPerPage = 10
 
+    private fun onList(sender: CommandSender, pageNumber: Int?) {
+        val pageNum = pageNumber ?: 1
+        val pageIndex = pageNum - 1
+        val musicInfos = MusicManager.getMusics()
+        var i = 0
+        val pages = musicInfos.groupBy { (i++) / itemPerPage }
+
+        if (!pages.containsKey(pageIndex)) {
+            sender.sendMessage("未知的页数")
+            return
+        }
+
+        //region header
+        val pageNumText = pageNum.toString().toCB().color(TextColor.AQUA)
+        val message = TextComponent.builder()
+            .append("第")
+            .append(TextComponent.space())
+            .append(pageNumText)
+            .append(TextComponent.space())
+            .append("页")
+        //endregion
+
+        //region body
+        pages[pageIndex]?.forEach {
+            val fileName = MusicInfo.removeFileNameSpaces(it.musicFileName)
+            val playText = "播放".toCB()
+                .color(TextColor.GRAY)
+                .hoverEvent(HoverEvent.showText("点击播放".toComponent()))
+                .clickEvent(ClickEvent.runCommand("/$commandName $play $fileName"))
+            val settingsText = "设置".toCB()
+                .color(TextColor.GRAY)
+                .hoverEvent(HoverEvent.showText("点击查看设置".toComponent()))
+                .clickEvent(ClickEvent.runCommand("/$commandName $settings $fileName"))
+
+            val musicMsg = TextComponent.builder()
+                .append(it.displayName)
+                .append(TextComponent.space())
+                .append("[")
+                .append(playText)
+                .append("]")
+                .append(TextComponent.space())
+                .append("[")
+                .append(settingsText)
+                .append("]")
+
+            message.append(TextComponent.newline()).append(musicMsg)
+        }
+        //endregion
+
+        //region footer
+        val previousIndex = pageIndex - 1
+        val nextIndex = pageIndex + 1
+        val hasPrevious = pages.containsKey(previousIndex)
+        val hasNext = pages.containsKey(nextIndex)
+
+        val previousPage = "上一页".toCB()
+            .color(if (hasPrevious) TextColor.GRAY else TextColor.DARK_GRAY)
+        val nextPage = "下一页".toCB()
+            .color(if (hasNext) TextColor.GRAY else TextColor.DARK_GRAY)
+
+        if (hasPrevious) {
+            previousPage
+                .hoverEvent(HoverEvent.showText("前往上一页".toComponent()))
+                .clickEvent(ClickEvent.runCommand("/$commandName $list ${previousIndex + 1}"))
+        } else {
+            previousPage.hoverEvent(HoverEvent.showText("没有上一页".toComponent()))
+        }
+        if (hasNext) {
+            nextPage
+                .hoverEvent(HoverEvent.showText("前往下一页".toComponent()))
+                .clickEvent(ClickEvent.runCommand("/$commandName $list ${nextIndex + 1}"))
+        } else {
+            nextPage.hoverEvent(HoverEvent.showText("没有下一页".toComponent()))
+        }
+
+        val footer = TextComponent.builder()
+            .append("[")
+            .append(previousPage)
+            .append("]")
+            .append(TextComponent.space())
+            .append(pageNumText)
+            .append(TextComponent.space())
+            .append("[")
+            .append(nextPage)
+            .append("]")
+
+        message
+            .append(TextComponent.newline())
+            .append(footer)
+        //endregion
+
+        TextAdapter.sendMessage(sender, message.build())
     }
 
     private fun onControls(sender: CommandSender) {
@@ -400,8 +492,7 @@ object CommandCMP : CommandExecutor {
 
             val detailText = "详情".toCB()
                 .color(TextColor.GRAY)
-                .hoverEvent(HoverEvent.showText("点击查看详情".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $attrDetail ${it.name}"))
+                .hoverEvent(HoverEvent.showText(attrInfo.description.toComponent()))
             val fileNameWithoutSpace = MusicInfo.removeFileNameSpaces(musicInfo.musicFileName)
             val modifyText = "修改".toCB()
                 .color(TextColor.GRAY)
@@ -417,13 +508,15 @@ object CommandCMP : CommandExecutor {
                 .append(", 当前: ")
                 .append(valueStr.toCB().color(TextColor.AQUA))
                 .append("; ")
-            attrMessage
                 .append("[")
                 .append(detailText)
                 .append("]")
-                .append(TextComponent.space())
             if (sender.hasPermission(modifyPermission))
-                attrMessage.append("[").append(modifyText).append("]").append(TextComponent.space())
+                attrMessage
+                    .append(TextComponent.space())
+                    .append("[")
+                    .append(modifyText)
+                    .append("]")
 
             message
                 .append(TextComponent.newline())

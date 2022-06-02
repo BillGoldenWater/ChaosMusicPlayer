@@ -14,6 +14,7 @@ data class MusicInfo(
     @Transient
     val musicFile: File = File(MusicManager.musicFolder, musicFileName),
     @Name("显示名称")
+    @Description("玩家会看到的名字")
     var displayName: String = musicFile.nameWithoutExtension,
 
     @Name("预加载")
