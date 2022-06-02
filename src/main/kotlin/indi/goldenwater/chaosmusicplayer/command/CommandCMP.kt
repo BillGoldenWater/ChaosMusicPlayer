@@ -122,8 +122,8 @@ object CommandCMP : CommandExecutor {
     }
 
     @CommandHandler(
-        "help", argumentsInfo = "[指令]", description = "查看用法",
-        descriptionDetail = "显示指令的详细用法"
+        "help",
+        argumentsInfo = "[指令]", description = "显示用法", descriptionDetail = "显示指令的详细用法"
     )
     fun onHelp(sender: CommandSender, args: MutableList<String>) {
         val message = TextComponent.builder()
@@ -163,7 +163,10 @@ object CommandCMP : CommandExecutor {
     }
 
     //region operations
-    @CommandHandler("play", minimumArgNum = 1, onlyPlayer = true)
+    @CommandHandler(
+        "play", minimumArgNum = 1, onlyPlayer = true,
+        argumentsInfo = "<文件名>", description = "播放音乐", descriptionDetail = "播放指定的音乐"
+    )
     fun onPlay(sender: Player, args: MutableList<String>) {
         val musicFileName = args.first()
 
@@ -178,22 +181,25 @@ object CommandCMP : CommandExecutor {
         }
     }
 
-    @CommandHandler("pause", onlyPlayer = true)
+    @CommandHandler("pause", onlyPlayer = true, description = "暂停", descriptionDetail = "暂停正在播放的音乐")
     fun onPause(sender: Player) {
         MusicManager.pause(sender)
     }
 
-    @CommandHandler("resume", onlyPlayer = true)
+    @CommandHandler("resume", onlyPlayer = true, description = "恢复", descriptionDetail = "恢复之前暂停的音乐(如果没停止的话)")
     fun onResume(sender: Player) {
         MusicManager.resume(sender)
     }
 
-    @CommandHandler("stop", onlyPlayer = true)
+    @CommandHandler("stop", onlyPlayer = true, description = "停止", descriptionDetail = "停止正在播放的音乐")
     fun onStop(sender: Player) {
         MusicManager.stop(sender)
     }
 
-    @CommandHandler("join", minimumArgNum = 1, onlyPlayer = true)
+    @CommandHandler(
+        "join", minimumArgNum = 1, onlyPlayer = true,
+        argumentsInfo = "<玩家名>", description = "加入一起听", descriptionDetail = "申请和对方一起听"
+    )
     fun onJoin(sender: Player, args: MutableList<String>) {
         val targetPlayerName = args.removeFirst()
 
@@ -205,7 +211,10 @@ object CommandCMP : CommandExecutor {
         MusicManager.join(sender, targetPlayer)
     }
 
-    @CommandHandler("invite", minimumArgNum = 1, onlyPlayer = true)
+    @CommandHandler(
+        "invite", minimumArgNum = 1, onlyPlayer = true,
+        argumentsInfo = "<玩家名>", description = "邀请一起听", descriptionDetail = "邀请对方一起听"
+    )
     fun onInvite(sender: Player, args: MutableList<String>) {
         args.forEach {
             val targetPlayer = Bukkit.getPlayer(it)
@@ -217,7 +226,10 @@ object CommandCMP : CommandExecutor {
         }
     }
 
-    @CommandHandler("accept")
+    @CommandHandler(
+        "accept",
+        description = "同意/接受请求/邀请", descriptionDetail = "同意/接受最近一个其他人发给你的请求/邀请"
+    )
     fun onAccept(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
@@ -226,7 +238,10 @@ object CommandCMP : CommandExecutor {
         MusicManager.accept(sender)
     }
 
-    @CommandHandler("deny")
+    @CommandHandler(
+        "deny",
+        description = "拒绝请求/邀请", descriptionDetail = "拒绝最近一个其他人发给你的请求/邀请"
+    )
     fun onDeny(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
@@ -235,7 +250,10 @@ object CommandCMP : CommandExecutor {
         MusicManager.deny(sender)
     }
 
-    @CommandHandler("cancel")
+    @CommandHandler(
+        "cancel",
+        description = "取消请求/邀请", descriptionDetail = "取消所有你发给其他人的请求/邀请"
+    )
     fun onCancel(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
@@ -244,7 +262,10 @@ object CommandCMP : CommandExecutor {
         MusicManager.cancel(sender)
     }
 
-    @CommandHandler("quit")
+    @CommandHandler(
+        "quit",
+        description = "退出一起听", descriptionDetail = "退出你加入的一起听"
+    )
     fun onQuit(sender: CommandSender) {
         if (sender !is Player) {
             onOnlyPlayer(sender)
@@ -253,7 +274,11 @@ object CommandCMP : CommandExecutor {
         MusicManager.quit(sender)
     }
 
-    @CommandHandler("modify", permission = "chaosmusicplayer.modify", minimumArgNum = 2, onlyPlayer = true)
+    @CommandHandler(
+        "modify", permission = "chaosmusicplayer.modify", minimumArgNum = 2, onlyPlayer = true,
+        argumentsInfo = "[文件名] <属性名> <值>",
+        description = "修改音乐参数", descriptionDetail = "修改指定音乐的参数, 没有正在播放时必须提供文件名"
+    )
     fun onModify(sender: Player, args: MutableList<String>) {
         val attrs = MusicInfo.getAttrs()
 
@@ -321,7 +346,10 @@ object CommandCMP : CommandExecutor {
     //region visualize
     private const val itemPerPage = 10
 
-    @CommandHandler("list")
+    @CommandHandler(
+        "list",
+        argumentsInfo = "[页数]", description = "列出音乐", descriptionDetail = "列出第n页的音乐"
+    )
     fun onList(sender: CommandSender, args: MutableList<String>) {
         val pageNum = args.removeFirstOrNull()?.toIntOrNull() ?: 1
         val pageIndex = pageNum - 1
@@ -420,7 +448,10 @@ object CommandCMP : CommandExecutor {
         TextAdapter.sendMessage(sender, message.build())
     }
 
-    @CommandHandler("controls", onlyPlayer = true)
+    @CommandHandler(
+        "controls", onlyPlayer = true,
+        description = "播放控制", descriptionDetail = "显示播放控制按钮"
+    )
     fun onControls(sender: CommandSender) {
         val pauseText = "暂停".toCB()
         pauseText.clickEvent(ClickEvent.runCommand("/${commandName} ${getCommandInfo(this::onPause).command}"))
@@ -449,7 +480,11 @@ object CommandCMP : CommandExecutor {
         TextAdapter.sendMessage(sender, message.build())
     }
 
-    @CommandHandler("settings", permission = "chaosmusicplayer.settings")
+    @CommandHandler(
+        "settings", permission = "chaosmusicplayer.settings",
+        argumentsInfo = "[文件名]",
+        description = "显示参数", descriptionDetail = "显示指定音乐的参数, 没有正在播放时必须提供文件名"
+    )
     fun onSettings(sender: CommandSender, args: MutableList<String>) {
         val musicFileName = args.removeFirstOrNull()
 
