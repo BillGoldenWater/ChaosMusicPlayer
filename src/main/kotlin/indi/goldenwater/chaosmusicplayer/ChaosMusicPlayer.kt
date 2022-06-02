@@ -1,6 +1,7 @@
 package indi.goldenwater.chaosmusicplayer
 
 import indi.goldenwater.chaosmusicplayer.command.CommandCMP
+import indi.goldenwater.chaosmusicplayer.command.TabCMP
 import indi.goldenwater.chaosmusicplayer.music.MusicManager
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.generateResourcePack
@@ -37,7 +38,10 @@ class ChaosMusicPlayer : JavaPlugin() {
         loadMusicInfos()
         //endregion
 
-        getCommand(CommandCMP.commandName)?.setExecutor(CommandCMP)
+        getCommand(CommandCMP.commandName)?.let {
+            it.setExecutor(CommandCMP)
+            it.tabCompleter = TabCMP
+        }
 
         logger.info("Enabled")
     }

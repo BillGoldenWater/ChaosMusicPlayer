@@ -344,7 +344,7 @@ object CommandCMP : CommandExecutor {
     //endregion
 
     //region visualize
-    private const val itemPerPage = 10
+    const val itemPerPage = 10
 
     @CommandHandler(
         "list",
@@ -564,14 +564,14 @@ object CommandCMP : CommandExecutor {
         val descriptionDetail: String = "",
     )
 
-    private fun getCommandInfo(commandHandler: KFunction<*>): CommandHandler {
+    fun getCommandInfo(commandHandler: KFunction<*>): CommandHandler {
         return (
                 commandHandler.annotations.find { it is CommandHandler }
                     ?: throw IllegalArgumentException("${commandHandler.name} is not a command handler.")
                 ) as CommandHandler
     }
 
-    private fun getCmdName(commandHandler: KFunction<*>): String {
+    fun getCmdName(commandHandler: KFunction<*>): String {
         return getCommandInfo(commandHandler).command
     }
 
@@ -581,12 +581,12 @@ object CommandCMP : CommandExecutor {
         return "/$commandName $cmdName$argsStr"
     }
 
-    private fun hasPermission(sender: CommandSender, commandHandler: KFunction<*>): Boolean {
+    fun hasPermission(sender: CommandSender, commandHandler: KFunction<*>): Boolean {
         val perm = getPermission(commandHandler)
         return perm.isBlank() || sender.hasPermission(perm)
     }
 
-    private fun getCommandHandler(command: String): KFunction<*>? {
+    fun getCommandHandler(command: String): KFunction<*>? {
         return commandHandlers.find { handler ->
             getCommandInfo(handler).command == command
         }
