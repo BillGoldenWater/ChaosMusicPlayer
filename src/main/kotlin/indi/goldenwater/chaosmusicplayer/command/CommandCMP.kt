@@ -391,25 +391,24 @@ object CommandCMP : CommandExecutor {
             musicInfo = info
         }
 
-        val message = "${musicInfo.musicFileName} 的设置项".toCB().append(TextComponent.newline())
+        val message = "${musicInfo.musicFileName} 的设置项".toCB()
 
         val attrs = MusicInfo.getAttrs()
-        val attrSize = attrs.size
-        attrs.forEachIndexed { i, v ->
-            val attrInfo = MusicInfo.getAttrInfo(v.name)
-            val valueStr = v.getter.call(musicInfo).toString()
+        attrs.forEach {
+            val attrInfo = MusicInfo.getAttrInfo(it.name)
+            val valueStr = it.getter.call(musicInfo).toString()
 
             val detailText = "详情".toCB()
                 .color(TextColor.GRAY)
                 .hoverEvent(HoverEvent.showText("点击查看详情".toComponent()))
-                .clickEvent(ClickEvent.runCommand("/$commandName $attrDetail ${v.name}"))
+                .clickEvent(ClickEvent.runCommand("/$commandName $attrDetail ${it.name}"))
             val fileNameWithoutSpace = MusicInfo.removeFileNameSpaces(musicInfo.musicFileName)
             val modifyText = "修改".toCB()
                 .color(TextColor.GRAY)
                 .hoverEvent(HoverEvent.showText("点击补全修改命令".toComponent()))
                 .clickEvent(
                     ClickEvent.suggestCommand(
-                        "/$commandName $modify $fileNameWithoutSpace ${v.name} $valueStr"
+                        "/$commandName $modify $fileNameWithoutSpace ${it.name} $valueStr"
                     )
                 )
 
@@ -426,10 +425,9 @@ object CommandCMP : CommandExecutor {
             if (sender.hasPermission(modifyPermission))
                 attrMessage.append("[").append(modifyText).append("]").append(TextComponent.space())
 
-            message.append(attrMessage)
-            if (i + 1 < attrSize) {
-                message.append(TextComponent.newline())
-            }
+            message
+                .append(TextComponent.newline())
+                .append(attrMessage)
         }
 
         TextAdapter.sendMessage(sender, message.build())
