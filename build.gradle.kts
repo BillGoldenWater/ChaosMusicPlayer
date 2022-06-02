@@ -1,6 +1,7 @@
 import java.net.URI
 
 plugins {
+    application
     kotlin("jvm") version "1.6.21"
     kotlin("plugin.serialization") version "1.6.21"
 }
@@ -45,6 +46,7 @@ tasks {
         )
 //        archiveClassifier.set("standalone") // Naming the jar
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        manifest { attributes(mapOf("Main-Class" to application.mainClass)) }
 
         val sourcesMain = sourceSets.main.get()
         val contents = configurations.runtimeClasspath
@@ -65,4 +67,8 @@ tasks {
             expand(props)
         }
     }
+}
+
+application {
+    mainClass.set("indi.goldenwater.chaosmusicplayer.ChaosMusicPlayerKt")
 }
