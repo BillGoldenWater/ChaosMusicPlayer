@@ -56,6 +56,10 @@ data class MusicInfo(
 ) {
 
     companion object {
+        private val mutableAttrs: List<KMutableProperty<*>> = MusicInfo::class.declaredMemberProperties
+            .filterNot { it.annotations.any { annotation -> annotation is Transient } }
+            .mapNotNull { if (it is KMutableProperty<*>) it else null }
+
         fun parseMusicFileName(string: String): String {
             return string.replace(":", " ")
         }
@@ -65,9 +69,7 @@ data class MusicInfo(
         }
 
         fun getAttrs(): List<KMutableProperty<*>> {
-            return MusicInfo::class.declaredMemberProperties
-                .filterNot { it.annotations.any { annotation -> annotation is Transient } }
-                .mapNotNull { if (it is KMutableProperty<*>) it else null }
+            return mutableAttrs
         }
 
         fun getAttrInfo(attr: String): AttrInfo {
