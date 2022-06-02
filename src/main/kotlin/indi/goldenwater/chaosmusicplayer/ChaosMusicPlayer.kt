@@ -57,9 +57,9 @@ class ChaosMusicPlayer : JavaPlugin() {
 
     fun setMusicInfos(musicInfos: MutableList<MusicInfo>) {
         musicDatas = musicInfos
-                .distinctBy { it.musicFileName }
-                .filter { it.musicFile.exists() }
-                .sortedBy { it.musicFileName }
+            .distinctBy { it.musicFileName }
+            .filter { it.musicFile.exists() }
+            .sortedBy { it.musicFileName }
     }
 
     private fun loadMusicInfos() {
