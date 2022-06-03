@@ -12,8 +12,8 @@ version = "1.0.0"
 repositories {
     mavenCentral()
     maven {
-        name = "papermc-repo"
-        url = URI("https://papermc.io/repo/repository/maven-public/")
+        name = "spigot-repo"
+        url = URI("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
     }
 }
 
@@ -22,17 +22,17 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.4.20")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
 
-    implementation("com.github.wendykierp:JTransforms:3.1")
+    compileOnly("com.github.wendykierp:JTransforms:3.1")
 
-    implementation("net.kyori:text-adapter-bukkit:3.0.6")
+    compileOnly("net.kyori:text-adapter-bukkit:3.0.6")
 
-    compileOnly("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:1.18.2-R0.1-SNAPSHOT")
 }
 
 tasks {
     compileKotlin {
         kotlinOptions {
-            jvmTarget = "17"
+            jvmTarget = "11"
         }
     }
 
