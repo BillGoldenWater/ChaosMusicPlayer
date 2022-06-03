@@ -12,7 +12,6 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 ### 注:
 
 - 因实现方法受 Minecraft 同时播放声音数(247)的限制 造成播放复杂音乐时噪音较多
-- 仅在 1.18.2 paper 测试, 理论上兼容 spigot
 
 ### BUG反馈, 建议等:
 
@@ -55,6 +54,25 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 - `chaosmusicplayer.modify` 拥有的玩家可以修改所有音乐的参数 默认 op 拥有
 - `chaosmusicplayer.settings` 拥有的玩家可以查看所有音乐的参数 默认拥有
+
+### 更新记录:
+
+- 2022-06-03 1.0.1
+    - 优化:
+      - 优化文件大小
+    - 修复:
+      - 修复支持 Minecraft 1.17 或 Java 11 但实际无法使用的问题 
+        - 注: 修复后 Minecraft 1.17 仅理论上支持 未经测试
+- 2022-06-02 1.0.0
+    - 新增:
+        - 音乐播放
+            - 文件放至 `plugins/ChaosMusicPlayer/musics` 文件夹内
+            - 必须wav格式 线性pcm_signed 或 线性pcm_unsigned
+            - 推荐使用 ffmpeg 转换 `ffmpeg -i 输入文件 输出文件.wav`
+        - 音乐参数调节
+        - 一起听功能
+        - 资源包生成
+            - 在文件目录下执行 `java -jar ChaosMusicPlayer-1.0.0.jar`
 
 ### 许可协议:
 
