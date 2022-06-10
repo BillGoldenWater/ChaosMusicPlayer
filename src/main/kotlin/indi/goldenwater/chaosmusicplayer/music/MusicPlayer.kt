@@ -77,11 +77,10 @@ class MusicPlayer(
     //region utilities
     private val framePerTick: Int
         get() = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
-    private val frameBuffer: DoubleBuffer = DoubleBuffer.allocate(channelSize)
-    private val readAFrame: (ByteBuffer) -> Unit = { buffer: ByteBuffer ->
-        frameBuffer.clear()
+    private val readAFrameMono: (ByteBuffer) -> Double = { buffer: ByteBuffer ->
+        var sum = 0.0
         for (i in 0 until channelSize) {
-            val value = when (encoding) {
+            sum += when (encoding) {
                 AudioFormat.Encoding.PCM_SIGNED -> when (sampleSize) {
                     8 -> buffer.get() / Byte.MAX_VALUE.toDouble()
                     16 -> buffer.short / Short.MAX_VALUE.toDouble()
@@ -98,8 +97,8 @@ class MusicPlayer(
                 }
                 else -> throw IllegalArgumentException("Unsupported encoding $encoding")
             }
-            frameBuffer.put(value)
         }
+        sum / channelSize
     }
     //endregion
 
@@ -171,8 +170,7 @@ class MusicPlayer(
         val packetMono = DoubleBuffer.allocate(frameNum)
 
         while (tickFrame.hasRemaining()) {
-            readAFrame(tickFrame)
-            packetMono.put(frameBuffer.array().sum())
+            packetMono.put(readAFrameMono(tickFrame))
         }
 
         val packetMonoArray = packetMono.array()
