@@ -9,6 +9,7 @@ import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
+import indi.goldenwater.chaosmusicplayer.utils.stopAllSounds
 import net.kyori.text.TextComponent
 import net.kyori.text.adapter.bukkit.TextAdapter
 import org.bukkit.SoundCategory
@@ -254,7 +255,7 @@ class MusicPlayer(
 
     private fun playToPlayers() {
         targetPlayers.forEach { player ->
-            player.stopAllSounds()
+            stopAllSounds(player)
 
             soundsNeedPlay.forEach {
                 player.playSound(player.location, it.eventName, SoundCategory.RECORDS, it.volume, it.pitch)
@@ -263,7 +264,7 @@ class MusicPlayer(
     }
 
     private fun stopAllPlaying() {
-        targetPlayers.forEach { it.stopAllSounds() }
+        targetPlayers.forEach { stopAllSounds(it) }
     }
 
     fun getPlayedPercent(): Double =

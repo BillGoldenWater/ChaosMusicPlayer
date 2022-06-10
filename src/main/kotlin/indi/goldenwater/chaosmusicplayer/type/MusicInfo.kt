@@ -5,6 +5,7 @@
 
 package indi.goldenwater.chaosmusicplayer.type
 
+import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
 import indi.goldenwater.chaosmusicplayer.music.MusicManager
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -32,15 +33,15 @@ data class MusicInfo(
                 "  越大网络性能需求越大, 细节越多;\n" +
                 "  推荐范围 1~30"
     )
-    var ticksPerSecond: Int = 20,
+    var ticksPerSecond: Int = if (ChaosMusicPlayer.legacyStop) 16 else 20,
     @Name("最大声音数量")
     @Description(
         "每次播放的最大声音数量, 效果表现为: \n" +
                 "  越小网络性能需求越少, 细节越少;\n" +
                 "  越大网络性能需求越大, 细节越多;\n" +
-                "  推荐范围 20~247"
+                "  推荐范围 20~247 (版本低于1.17时 不推荐大于150)"
     )
-    var maxSoundNumber: Int = 247,
+    var maxSoundNumber: Int = if (ChaosMusicPlayer.legacyStop) 100 else 247,
     @Name("最小音量(绝对)")
     @Description(
         "剔除音量低于指定值的音频, 效果表现为: \n" +

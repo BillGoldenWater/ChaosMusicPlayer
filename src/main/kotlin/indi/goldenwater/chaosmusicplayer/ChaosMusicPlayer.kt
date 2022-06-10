@@ -10,6 +10,7 @@ import indi.goldenwater.chaosmusicplayer.command.TabCMP
 import indi.goldenwater.chaosmusicplayer.music.MusicManager
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.generateResourcePack
+import indi.goldenwater.chaosmusicplayer.utils.toMCVersion
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -31,6 +32,14 @@ class ChaosMusicPlayer : JavaPlugin() {
     }
 
     override fun onEnable() {
+        //region checkVersion
+        val version = server.bukkitVersion.toMCVersion()
+        if (version < "1.17".toMCVersion()) {
+            logger.info("Server version is lower than 1.17, using legacy way to stop sounds.")
+            legacyStop = true
+        }
+        //endregion
+
         //region init datas
         saveDefaultConfig()
         reloadConfig()
@@ -116,6 +125,7 @@ class ChaosMusicPlayer : JavaPlugin() {
 
     companion object {
         lateinit var instance: ChaosMusicPlayer
+        var legacyStop = false
     }
 }
 

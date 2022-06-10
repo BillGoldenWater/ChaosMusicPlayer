@@ -26,7 +26,7 @@ dependencies {
 
     compileOnly("net.kyori:text-adapter-bukkit:3.0.6")
 
-    compileOnly("org.spigotmc:spigot-api:1.18.2-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:1.19-R0.1-SNAPSHOT")
 }
 
 tasks {

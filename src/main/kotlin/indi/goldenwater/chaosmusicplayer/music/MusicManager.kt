@@ -10,6 +10,7 @@ import indi.goldenwater.chaosmusicplayer.command.CommandCMP
 import indi.goldenwater.chaosmusicplayer.music.MusicManager.RequestType.Invite
 import indi.goldenwater.chaosmusicplayer.music.MusicManager.RequestType.Join
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
+import indi.goldenwater.chaosmusicplayer.utils.stopAllSounds
 import indi.goldenwater.chaosmusicplayer.utils.toCB
 import net.kyori.text.TextComponent
 import net.kyori.text.adapter.bukkit.TextAdapter
@@ -262,7 +263,7 @@ object MusicManager {
             player.sendMessage("无法退出, 你并没有加入一起听")
         } else {
             playing.listenTogether.remove(player)
-            player.stopAllSounds()
+            stopAllSounds(player)
             playing.hostPlayer.sendMessage("${player.name} 已退出一起听")
             player.sendMessage("已退出一起听")
         }
