@@ -9,11 +9,20 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 - 多人一起听
 - 便捷的自定义设置
 
+### 兼容性说明:
+
+- 已确认 1.13.x 及以下版本可以运行但音质全损
+- 已确认兼容 1.18.2, 1.16.5
+- 理论兼容 1.16.x ~ 1.19.x
+- 1.14.x 到 1.15.x 不确定功能兼容性 可以自行测试
+  - 注: spigot 1.15.x 及以下不支持依赖库下载 需要修改依赖设置后重新打包
+- 注: 1.16.5 及以下非完全兼容 音质会略微降低
+
 ### 注:
 
 - 因实现方法受 Minecraft 同时播放声音数(247)的限制 造成播放复杂音乐时噪音较多
 
-### BUG反馈, 建议等:
+### BUG反馈, 建议:
 
 - 交流群: 263798831
 - [GitHub Issues](https://github.com/BiliGoldenWater/ChaosMusicPlayer/issues)
@@ -26,6 +35,7 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 1. 下载后放到 任意 文件夹里
 2. 使用 jre 运行
+    - 注: 需要安装有ffmpeg
 3. 运行后找到生成的 `generateResourcePack` 文件夹
 4. 进入 `generateResourcePack/output`
 5. 其中的 `ChaosMusicPlayer.zip` 就是要在客户端加载的资源包
@@ -57,12 +67,17 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 ### 更新记录:
 
+- 2022-06-11 1.0.2
+    - 优化:
+        - 优化兼容性 添加 1.16 的兼容
+    - 修复:
+        - 修复多声道音频音量不正确的问题
 - 2022-06-03 1.0.1
     - 优化:
-      - 优化文件大小
+        - 优化文件大小
     - 修复:
-      - 修复支持 Minecraft 1.17 或 Java 11 但实际无法使用的问题 
-        - 注: 修复后 Minecraft 1.17 仅理论上支持 未经测试
+        - 修复支持 Minecraft 1.17 或 Java 11 但实际无法使用的问题
+            - 注: 修复后 Minecraft 1.17 仅理论上支持 未经测试
 - 2022-06-02 1.0.0
     - 新增:
         - 音乐播放
