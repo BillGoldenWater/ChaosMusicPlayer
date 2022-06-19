@@ -52,12 +52,12 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
     2. 解压到一个不常移动的目录
     3. 添加 解压出来的文件夹 里的 bin文件夹 到 环境变量
 2. 打开 cmd 或 shell
-3. 运行 `ffmpeg -i 输入文件 -c:a pcm_s32be 输出文件.wav`
+3. 运行 `ffmpeg -i 输入文件 -c:a pcm_s32le 输出文件.wav`
     - 将输入文件替换成下载的音乐文件的路径
     - 输入文件替换成和输入文件一样的路径再加一个.wav即可
     - 注意如果路径中有空格的话需要在前后添加英文双引号"
-    - 例: `ffmpeg -i C:\test.mp3 -c:a pcm_s32be C:\test.mp3.wav`
-    - 例2: `ffmpeg -i "C:\te st.mp3" -c:a pcm_s32be "C:\te st.mp3.wav"`
+    - 例: `ffmpeg -i C:\test.mp3 -c:a pcm_s32le C:\test.mp3.wav`
+    - 例2: `ffmpeg -i "C:\te st.mp3" -c:a pcm_s32le "C:\te st.mp3.wav"`
 4. 将输出的wav文件放到 `服务器目录/plugins/ChaosMusicPlayer/musics` 即可
 
 ### 权限节点:
