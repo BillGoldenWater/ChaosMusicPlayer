@@ -2,12 +2,12 @@ import java.net.URI
 
 plugins {
     application
-    kotlin("jvm") version "1.6.21"
-    kotlin("plugin.serialization") version "1.6.21"
+    kotlin("jvm") version "1.7.10"
+    kotlin("plugin.serialization") version "1.7.10"
 }
 
 group = "indi.goldenwater"
-version = "1.0.2"
+version = "1.0.3"
 
 repositories {
     mavenCentral()
@@ -18,11 +18,11 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.6.21")
-    implementation("org.jetbrains.kotlin:kotlin-reflect:1.4.20")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.7.10")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
 
-    compileOnly("com.github.wendykierp:JTransforms:3.1")
+    implementation("com.github.wendykierp:JTransforms:3.1")
 
     compileOnly("net.kyori:text-adapter-bukkit:3.0.6")
 

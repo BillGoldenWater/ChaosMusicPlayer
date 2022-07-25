@@ -8,6 +8,7 @@ package indi.goldenwater.chaosmusicplayer.utils
 import indi.goldenwater.chaosmusicplayer.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
+import org.jtransforms.dst.DoubleDST_1D
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.nio.ByteBuffer
@@ -18,7 +19,6 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
 import kotlin.math.roundToLong
-import kotlin.math.sin
 
 const val packetName = "ChaosMusicPlayer"
 const val packetNamespace = "minecraft"
@@ -27,20 +27,20 @@ const val maxFrequencyNeedProvide = 20000.0
 
 //region sine wave audio files generate
 fun sineWave(frequency: Double, seconds: Double, sampleRate: Int): ByteArray {
-    val samples = (seconds * sampleRate).toInt()
-    val result = ByteBuffer.allocate(samples * Long.SIZE_BYTES)
+    if (frequency % 0.5 != 0.0) throw IllegalArgumentException("unsupported frequency")
+    val length = (sampleRate * seconds).toInt()
 
-    val interval = sampleRate.toDouble() / frequency
+    val dst = DoubleDST_1D(length.toLong())
+    val array = DoubleArray(length) { 0.0 }
+    array[abs(((frequency * 2 * seconds) - 1)).toInt()] = length.toDouble() * if (frequency < 0) -1 else 1
 
-    for (i in 1..samples) {
-        val radians = Math.toRadians((i / interval) * 360)
-        val value = sin(radians) * Long.MAX_VALUE
-        result.putLong(
-            value
-                .roundToLong()
-        )
+    dst.inverse(array, false)
+
+    val buf = ByteBuffer.allocate(length * Long.SIZE_BYTES)
+    array.forEach {
+        buf.putLong((it * Long.MAX_VALUE).roundToLong())
     }
-    return result.array()
+    return buf.array()
 }
 
 fun generateSineWaveFile(file: File, frequency: Double, seconds: Double = 1.0, sampleRate: Int = 44000) {
@@ -252,5 +252,6 @@ fun generateResourcePack() {
     output.mkdir()
     val resourcePackOutput = File(output, "${packetName}.zip")
     packToOutput(packSource, resourcePackOutput)
+    println("packaged")
     //endregion
 }
