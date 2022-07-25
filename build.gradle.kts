@@ -22,7 +22,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.7.10")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
 
-    implementation("com.github.wendykierp:JTransforms:3.1")
+    compileOnly("com.github.wendykierp:JTransforms:3.1")
 
     compileOnly("net.kyori:text-adapter-bukkit:3.0.6")
 
