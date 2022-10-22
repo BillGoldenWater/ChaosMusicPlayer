@@ -16,6 +16,7 @@ import net.fabricmc.fabric.api.networking.v1.PacketSender
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.network.ClientPlayNetworkHandler
 import net.minecraft.network.PacketByteBuf
+import net.minecraft.sound.SoundCategory
 import net.minecraft.util.Identifier
 import java.io.ByteArrayOutputStream
 import java.util.*
@@ -32,6 +33,7 @@ val line: SourceDataLine = AudioSystem.getSourceDataLine(af)
 val buffer = mutableListOf<MusicData>()
 const val defaultBufferLengthInSecond: Double = 0.5
 var bufferLength = defaultBufferLengthInSecond
+var minecraftClient: MinecraftClient? = null
 
 @Suppress("UNUSED")
 object ChaosMusicPlayer : ClientModInitializer {
@@ -42,7 +44,8 @@ object ChaosMusicPlayer : ClientModInitializer {
     startPlayLoop()
 
     ClientPlayConnectionEvents.JOIN.register { _: ClientPlayNetworkHandler,
-                                               _: PacketSender, _: MinecraftClient ->
+                                               _: PacketSender, client: MinecraftClient ->
+      minecraftClient = client
       // region register data channel
       ClientPlayNetworking.registerReceiver(
         Identifier(
@@ -66,6 +69,10 @@ object ChaosMusicPlayer : ClientModInitializer {
         PacketByteBufs.empty()
       )
       // endregion
+    }
+
+    ClientPlayConnectionEvents.DISCONNECT.register { _: ClientPlayNetworkHandler, _: MinecraftClient ->
+      minecraftClient = null
     }
 
     ClientLifecycleEvents.CLIENT_STOPPING.register {
@@ -132,6 +139,9 @@ fun getAudio(lenDiff: Double): Pair<ByteArray, Double> {
   val arrList = (1..size)
     .mapNotNull { buffer.removeFirstOrNull() }
   val bos = ByteArrayOutputStream()
+
+  val volumeScaler = minecraftClient?.options?.getSoundVolume(SoundCategory.RECORDS) ?: 0.5f
+
   arrList.forEach {
     val lenDouble = af.sampleRate * it.lengthInSecond
     val lenSpilt = lenDouble.split()
@@ -145,7 +155,7 @@ fun getAudio(lenDiff: Double): Pair<ByteArray, Double> {
       lenSpilt.first
     }
 
-    bos.write(it.toAudio(len))
+    bos.write(it.toAudio(len, volumeScaler.toDouble()))
   }
 
   return bos.toByteArray() to diff

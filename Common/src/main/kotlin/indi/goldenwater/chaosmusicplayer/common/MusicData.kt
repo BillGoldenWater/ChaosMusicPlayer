@@ -45,13 +45,13 @@ data class MusicData(
   private fun size(): Int = HeaderSize + (DstItem.size * items.size)
 
   @Suppress("unused")
-  fun toAudio(audioFormat: AudioFormat, speed: Double): ByteArray {
+  fun toAudio(audioFormat: AudioFormat, speed: Double, volumeScale: Double): ByteArray {
     val len = (audioFormat.sampleRate * lengthInSecond * (1 / speed)).roundToInt()
-    return toAudio(len)
+    return toAudio(len, volumeScale)
   }
 
   @Suppress("MemberVisibilityCanBePrivate")
-  fun toAudio(len: Int): ByteArray {
+  fun toAudio(len: Int, volumeScale: Double): ByteArray {
     val halfLen = len / 2.0
 
     val arr = DoubleArray(len) { 0.0 }
@@ -68,7 +68,7 @@ data class MusicData(
     val buf = ByteBuffer.allocate(arr.size * Short.SIZE_BYTES)
 
     for (d in arr) {
-      buf.putShort((d * Short.MAX_VALUE * 0.9).toInt().toShort())
+      buf.putShort((d * Short.MAX_VALUE * 0.9 * volumeScale).toInt().toShort())
       // 0.9 is for reduce some crack by limit max volume to 90%
     }
 
