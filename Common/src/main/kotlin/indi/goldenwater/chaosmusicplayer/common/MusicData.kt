@@ -68,7 +68,8 @@ data class MusicData(
     val buf = ByteBuffer.allocate(arr.size * Short.SIZE_BYTES)
 
     for (d in arr) {
-      buf.putShort((d * Short.MAX_VALUE * 0.95).toInt().toShort()) // 0.95 is for avoid some crack
+      buf.putShort((d * Short.MAX_VALUE * 0.9).toInt().toShort())
+      // 0.9 is for reduce some crack by limit max volume to 90%
     }
 
     return buf.array()
