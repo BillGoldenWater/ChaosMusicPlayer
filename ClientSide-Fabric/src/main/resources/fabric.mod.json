@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "chaosmusicplayer",
+  "version": "${version}",
+  "name": "ChaosMusicPlayer",
+  "description": "A mod for receive and play audio data that send from ChaosMusicPlayer server plugin.",
+  "authors": [
+    "Golden_Water"
+  ],
+  "contact": {
+    "homepage": "https://github.com/BiliGoldenWater/ChaosMusicPlayer",
+    "issues": "https://github.com/BiliGoldenWater/ChaosMusicPlayer/issues",
+    "sources": "https://github.com/BiliGoldenWater/ChaosMusicPlayer"
+  },
+  "license": "AGPL-v3",
+  "icon": "assets/chaosmusicplayer/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer"
+      }
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=${fabricloader}",
+    "fabric-api": ">=${fabric_api}",
+    "fabric-language-kotlin": ">=${fabric_language_kotlin}",
+    "minecraft": ">=${minecraft}",
+    "java": ">=${java}"
+  }
+}

@@ -6,6 +6,9 @@
 package indi.goldenwater.chaosmusicplayer.music
 
 import indi.goldenwater.chaosmusicplayer.ChaosMusicPlayer
+import indi.goldenwater.chaosmusicplayer.common.DstItem
+import indi.goldenwater.chaosmusicplayer.common.MusicData
+import indi.goldenwater.chaosmusicplayer.common.utils.split
 import indi.goldenwater.chaosmusicplayer.type.MCSoundEventItem
 import indi.goldenwater.chaosmusicplayer.type.MusicInfo
 import indi.goldenwater.chaosmusicplayer.utils.getFrequencySoundInfo
@@ -75,9 +78,24 @@ class MusicPlayer(
   private val totalLength: Int = (audioInputStream.frameLength / sampleRate).roundToInt()
 
   //region utilities
-  private val framePerTick: Int
-    get() = (sampleRate * (1.0 / ticksPerSecond)).roundToInt()
-  private val readAFrameMono: (ByteBuffer) -> Double = { buffer: ByteBuffer ->
+  private var samplePerTickDiff = 0.0
+  private val samplePerTick: Int
+    get() {
+      val perTickDouble = sampleRate * (1.0 / ticksPerSecond)
+      val perTickSplit = perTickDouble.split()
+      samplePerTickDiff += perTickSplit.second
+
+      val diffSplit = samplePerTickDiff.split()
+      val perTick = if (diffSplit.first >= 1) {
+        samplePerTickDiff -= diffSplit.first
+        perTickSplit.first + diffSplit.first
+      } else {
+        perTickSplit.first
+      }
+
+      return perTick
+    }
+  private val readAFrame: (ByteBuffer) -> Double = { buffer: ByteBuffer ->
     var sum = 0.0
     for (i in 0 until channelSize) {
       sum += when (encoding) {
@@ -105,12 +123,16 @@ class MusicPlayer(
   //endregion
 
   //region cache
-  private val audioBuffer: ByteBuffer = ByteBuffer.allocate(audioInputStream.frameLength.toInt() * frameSize)
+  private val audioBuffer: ByteBuffer = ByteBuffer.allocate(
+    if (preload) {
+      audioInputStream.frameLength.toInt() * frameSize
+    } else 0
+  )
 
   private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
   private val tickBufferArrays: MutableMap<Int, ByteArray> = mutableMapOf()
 
-  private val soundsNeedPlay: MutableList<MCSoundEventItem> = mutableListOf()
+  private var musicDataPerTick: MusicData = MusicData()
   //endregion
 
   private var playing = true
@@ -155,73 +177,62 @@ class MusicPlayer(
 
     //region readData
     val packetSize = (if (preload) audioBuffer.remaining() else audioInputStream.available())
-      .coerceAtMost(framePerTick * frameSize)
+      .coerceAtMost(samplePerTick * frameSize)
     if (packetSize == 0) {
       this.stop()
       return
     }
-    val tickFrame = readATick(packetSize)
+    val data = readATick(packetSize)
     //endregion
 
     //region mergeChannel
-    val frameNumInDouble = tickFrame.capacity() * 1.0 / frameSize
+    val frameNumInDouble = data.capacity() * 1.0 / frameSize
     if (frameNumInDouble % 1.0 != 0.0) {
       throw RuntimeException("Unexpected $frameNumInDouble frame per tick, it should be a integer.")
     }
     val frameNum = frameNumInDouble.roundToInt()
-    val packetMono = DoubleBuffer.allocate(frameNum)
+    val packet = DoubleBuffer.allocate(frameNum)
 
-    while (tickFrame.hasRemaining()) {
-      packetMono.put(readAFrameMono(tickFrame))
+    while (data.hasRemaining()) {
+      packet.put(readAFrame(data))
     }
 
-    val packetMonoArray = packetMono.array()
+    val packetArr = packet.array()
     //endregion
 
     //region generateSoundsNeedPlay
-    val dstValueToVolume = { value: Double -> abs(value / (packetMonoArray.size / 2)) }
+    val dstValueNormalized = { value: Double -> (value / (packetArr.size / 2)).toFloat() }
 
     val dst = dSTs.getOrPut(frameNum) { DoubleDST_1D(frameNum.toLong()) }
-    dst.forward(packetMonoArray, false)
+    dst.forward(packetArr, false)
 
-    var minimumUDstValue = Double.MAX_VALUE
-    var maximumUDstValue = 0.0
-    // Pair<Double, Int> dstValue index
-    val dSTOutputSounds: MutableList<Pair<Double, Int>> = mutableListOf()
-    for (i in packetMonoArray.indices) {
-      val dstValue = packetMonoArray[i]
+    var minimumVolume = Float.MAX_VALUE
+    var maximumVolume = 0.0f
+    val dSTOutputSounds: MutableList<DstItem> = mutableListOf()
+    for (i in packetArr.indices) {
+      val normalized = dstValueNormalized(packetArr[i])
 
-      val volume = dstValueToVolume(dstValue)
-      if (volume < minimumVolume || volume == 0.0) continue
+      val volume = abs(normalized)
 
-      val uDstValue = abs(dstValue)
-      if (uDstValue < minimumUDstValue) minimumUDstValue = uDstValue
-      else if (uDstValue > maximumUDstValue) maximumUDstValue = uDstValue
+      if (volume < this.minimumVolume || volume == 0.0f) continue
 
-      dSTOutputSounds.add(dstValue to i)
+      if (volume < minimumVolume) minimumVolume = volume
+      else if (volume > maximumVolume) maximumVolume = volume
+
+      dSTOutputSounds.add(DstItem(index = i, valueNormalized = normalized))
     }
-    val uDstValueRange = maximumUDstValue - minimumUDstValue
+    val uVolumeRange = maximumVolume - minimumVolume
 
-    dSTOutputSounds.removeIf { abs(it.first) < minimumUDstValue + (uDstValueRange * removeLowVolumeValueInPercent) }
+    dSTOutputSounds.removeIf { abs(it.valueNormalized) < minimumVolume + (uVolumeRange * removeLowVolumeValueInPercent) }
 
-    dSTOutputSounds.sortByDescending { abs(it.first) }
+    dSTOutputSounds.sortByDescending { abs(it.valueNormalized) }
     //endregion
 
-    //region convert to minecraft sound event
-    soundsNeedPlay.clear()
-
-    val soundsNeedPlayNum = dSTOutputSounds.size.coerceAtMost(maxSoundNumber)
-    for (i in 0 until soundsNeedPlayNum) {
-      val item = dSTOutputSounds[i]
-      val dstValue = item.first
-
-      val volume = dstValueToVolume(dstValue).toFloat()
-      val frequency = ((item.second + 1) / 2.0) * (if (dstValue < 0) -1.0 else 1.0)
-
-      getFrequencySoundInfo(frequency * ticksPerSecond)?.let { info ->
-        soundsNeedPlay.add(MCSoundEventItem(info.eventName, volume, info.pitch.toFloat()))
-      }
-    }
+    //region convert to MusicData
+    val items = dSTOutputSounds
+      .take(MusicData.AvailableItemsNumber)
+    musicDataPerTick =
+      MusicData(items = items, dstLen = packetArr.size, ticksPerSecond = sampleRate.toDouble() / samplePerTick)
     //endregion
   }
 
@@ -254,11 +265,31 @@ class MusicPlayer(
   }
 
   private fun playToPlayers() {
-    targetPlayers.forEach { player ->
-      stopAllSounds(player)
+    val grouped = targetPlayers.groupBy { DirectEnabledPlayers.isEnabled(it.uniqueId) }
+    val vanilla = grouped.getOrDefault(false, listOf())
+    val direct = grouped.getOrDefault(true, listOf())
 
-      soundsNeedPlay.forEach {
-        player.playSound(player.location, it.eventName, SoundCategory.RECORDS, it.volume, it.pitch)
+    if (vanilla.isNotEmpty()) {
+      val sounds = musicDataPerTick.items.take(maxSoundNumber).mapNotNull { item ->
+        getFrequencySoundInfo(frequency = musicDataPerTick.convToFrequency(item.index))?.let {
+          MCSoundEventItem(eventName = it.eventName, volume = abs(item.valueNormalized), pitch = it.pitch.toFloat())
+        }
+      }
+
+      for (player in vanilla) {
+        stopAllSounds(player)
+
+        sounds.forEach {
+          player.playSound(player.location, it.eventName, SoundCategory.RECORDS, it.volume, it.pitch)
+        }
+      }
+    }
+
+    if (direct.isNotEmpty()) {
+      val encoded = musicDataPerTick.encode()
+
+      for (player in direct) {
+        player.sendPluginMessage(ChaosMusicPlayer.instance, "chaosmusicplayer:music_data", encoded)
       }
     }
   }
