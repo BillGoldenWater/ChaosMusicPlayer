@@ -20,6 +20,12 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 ### 注:
 
+- 对音质有要求的可以使用 客户端mod 
+  - 需要以下版本或更高的 fabric
+    - fabric 1.18.2 
+    - fabric loader 0.14.10  
+    - fabric-api 0.59.1+1.18.2
+  - 前置 [Fabric Language Kotlin](https://www.curseforge.com/minecraft/mc-mods/fabric-language-kotlin)
 - 因实现方法受 Minecraft 同时播放声音数(247)的限制 造成播放复杂音乐时噪音较多
 
 ### BUG反馈, 建议:
@@ -35,7 +41,7 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 1. 下载后放到 任意 文件夹里
 2. 使用 jre 运行
-    - 注: 需要安装有ffmpeg
+    - 注: 需要安装有ffmpeg(见下方获取wav文件的第一步)
 3. 运行后找到生成的 `generateResourcePack` 文件夹
 4. 进入 `generateResourcePack/output`
 5. 其中的 `ChaosMusicPlayer.zip` 就是要在客户端加载的资源包
@@ -67,7 +73,7 @@ ChaosMusicPlayer 是一个用于便捷播放音乐的 Minecraft 服务端插件
 
 ### 更新记录:
 
-- 2022-10-23 1.1.0
+- 2022-10-24 1.1.0
     - 新增:
         - 新增客户端 Fabric MOD 大幅优化音质
 - 2022-07-25 1.0.3
