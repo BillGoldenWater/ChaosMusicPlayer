@@ -14,6 +14,11 @@ dependencies {
     modImplementation("net.fabricmc", "fabric-language-kotlin", project.extra["fabric_language_kotlin_version"] as String)
 
     implementation(project(":Common"))
+    include(project(":Common"))
+
+    include("com.github.wendykierp:JTransforms:3.1")
+    include("org.apache.commons:commons-math3:3.5")
+    include("pl.edu.icm:JLargeArrays:1.5")
 }
 tasks {
     val javaVersion = JavaVersion.toVersion((project.extra["java_version"] as String).toInt())
