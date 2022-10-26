@@ -31,7 +31,11 @@ val line: SourceDataLine = AudioSystem.getSourceDataLine(af)
 
 // data, length in second
 val buffer = mutableListOf<MusicData>()
-const val defaultBufferLengthInSecond: Double = 0.5
+val defaultBufferLengthInSecond: Double = if (System.getProperty("os.name") == "Mac OS X") {
+  0.5
+} else {
+  2.0
+}
 var bufferLength = defaultBufferLengthInSecond
 var minecraftClient: MinecraftClient? = null
 
@@ -85,17 +89,12 @@ object ChaosMusicPlayer : ClientModInitializer {
 fun startPlayLoop() {
   thread {
     while (true) {
-      // region calc bufferSize
-      val bufferSize =
-        (bufferLength / (buffer.getOrNull(0)?.lengthInSecond ?: 0.2))
-          .roundToInt()
-          .coerceAtLeast(1)
-      // endregion
+      var (_, bufferSize) = calcBufferSize()
 
       if (buffer.size > bufferSize) {
         var lenDiff = 0.0
 
-        while (buffer.isNotEmpty()) {
+        do {
           val arr = getAudio(lenDiff).let { lenDiff = it.second; it.first }
 
           line.write(arr, 0, arr.size)
@@ -105,16 +104,20 @@ fun startPlayLoop() {
             println("[ChaosMusicPlayer] buffer larger than it should be (should ${bufferSize}, but ${buffer.size}), clear buffer.")
             buffer.clear()
           }
-        }
+
+          val size = calcBufferSize()
+          val averageLen = size.first
+          bufferSize = size.second
+        } while ((buffer.size * averageLen) >= (bufferSize * 0.5).coerceAtMost(1.0))
 
         // region buffer auto adjust
         thread {
-          Thread.sleep(100)
+          Thread.sleep(500)
           if (buffer.size > 0) {
-            println("[ChaosMusicPlayer] was out of buffer, adding buffer length")
-            bufferLength += 0.1
+            bufferLength *= 1.2
+            println("[ChaosMusicPlayer] was out of buffer, adding buffer length to $bufferLength")
           } else if (bufferLength != defaultBufferLengthInSecond) {
-            println("[ChaosMusicPlayer] music end, reset buffer length")
+            println("[ChaosMusicPlayer] music end, reset buffer length to $defaultBufferLengthInSecond")
             bufferLength = defaultBufferLengthInSecond
           }
         }
@@ -124,6 +127,21 @@ fun startPlayLoop() {
       }
     }
   }
+}
+
+fun calcBufferSize(): Pair<Double, Int> {
+  // region calc bufferSize
+  val averageLen = if (buffer.isNotEmpty()) {
+    (buffer.sumOf { it.lengthInSecond } / buffer.size)
+  } else {
+    1.0 / 20
+  }
+
+  val bufferSize = (bufferLength / averageLen).roundToInt()
+    .coerceAtLeast(1)
+  // endregion
+
+  return averageLen to bufferSize
 }
 
 // data, newDiff
