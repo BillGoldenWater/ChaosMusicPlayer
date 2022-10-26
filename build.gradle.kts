@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "indi.goldenwater"
-version = "1.1.0"
+version = "1.1.1"
 
 repositories {
   mavenCentral()
@@ -24,7 +24,7 @@ dependencies {
 
   implementation(project(":Common"))
 
-  compileOnly("com.github.wendykierp:JTransforms:3.1")
+  implementation("com.github.wendykierp:JTransforms:3.1")
 
   compileOnly("net.kyori:text-adapter-bukkit:3.0.6")
 

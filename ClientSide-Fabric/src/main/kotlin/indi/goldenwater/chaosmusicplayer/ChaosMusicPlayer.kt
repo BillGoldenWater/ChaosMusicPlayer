@@ -38,6 +38,7 @@ val defaultBufferLengthInSecond: Double = if (System.getProperty("os.name") == "
 }
 var bufferLength = defaultBufferLengthInSecond
 var minecraftClient: MinecraftClient? = null
+var end = true
 
 @Suppress("UNUSED")
 object ChaosMusicPlayer : ClientModInitializer {
@@ -62,6 +63,7 @@ object ChaosMusicPlayer : ClientModInitializer {
         val arr = ByteArray(packetByteBuf.readableBytes())
         packetByteBuf.readBytes(arr)
 
+        end = false
         val decoded = MusicData.fromEncoded(arr)
         buffer.add(decoded)
       }
@@ -113,7 +115,7 @@ fun startPlayLoop() {
         // region buffer auto adjust
         thread {
           Thread.sleep(500)
-          if (buffer.size > 0) {
+          if (!end) {
             bufferLength *= 1.2
             println("[ChaosMusicPlayer] was out of buffer, adding buffer length to $bufferLength")
           } else if (bufferLength != defaultBufferLengthInSecond) {
@@ -122,6 +124,7 @@ fun startPlayLoop() {
           }
         }
         // endregion
+        end = true
       } else {
         Thread.sleep(10)
       }
