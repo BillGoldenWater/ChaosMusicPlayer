@@ -95,16 +95,11 @@ fun startPlayLoop() {
       if (buffer.size > bufferSize) {
         var lenDiff = 0.0
 
-        var arr = getAudio(lenDiff).let { lenDiff = it.second; it.first }
+        while (buffer.isNotEmpty()) {
+          val arr = getAudio(lenDiff).let { lenDiff = it.second; it.first }
 
-        while (true) {
           line.write(arr, 0, arr.size)
-          val drain = thread { line.drain() }
-
-          if (buffer.isEmpty()) break
-          arr = getAudio(lenDiff).let { lenDiff = it.second; it.first }
-
-          drain.join()
+          line.drain()
 
           if (buffer.size > bufferSize * 3) {
             println("[ChaosMusicPlayer] buffer larger than it should be (should ${bufferSize}, but ${buffer.size}), clear buffer.")
