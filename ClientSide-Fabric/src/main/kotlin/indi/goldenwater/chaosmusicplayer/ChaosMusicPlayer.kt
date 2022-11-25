@@ -6,7 +6,7 @@
 package indi.goldenwater.chaosmusicplayer
 
 import indi.goldenwater.chaosmusicplayer.common.MusicData
-import indi.goldenwater.chaosmusicplayer.common.utils.split
+import indi.goldenwater.chaosmusicplayer.common.utils.printDebug
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
@@ -18,7 +18,6 @@ import net.minecraft.client.network.ClientPlayNetworkHandler
 import net.minecraft.network.PacketByteBuf
 import net.minecraft.sound.SoundCategory
 import net.minecraft.util.Identifier
-import java.io.ByteArrayOutputStream
 import java.util.*
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
@@ -31,19 +30,12 @@ val line: SourceDataLine = AudioSystem.getSourceDataLine(af)
 
 // data, length in second
 val buffer = mutableListOf<MusicData>()
-val defaultBufferLengthInSecond: Double = if (System.getProperty("os.name") == "Mac OS X") {
-  0.5
-} else {
-  2.0
-}
-var bufferLength = defaultBufferLengthInSecond
 var minecraftClient: MinecraftClient? = null
-var end = true
 
 @Suppress("UNUSED")
 object ChaosMusicPlayer : ClientModInitializer {
   override fun onInitializeClient() {
-    line.open(af, 128000)
+    line.open(af, (af.sampleRate * (af.sampleSizeInBits / 8.0) * 2).roundToInt())
     line.start()
 
     startPlayLoop()
@@ -63,7 +55,6 @@ object ChaosMusicPlayer : ClientModInitializer {
         val arr = ByteArray(packetByteBuf.readableBytes())
         packetByteBuf.readBytes(arr)
 
-        end = false
         val decoded = MusicData.fromEncoded(arr)
         buffer.add(decoded)
       }
@@ -91,88 +82,49 @@ object ChaosMusicPlayer : ClientModInitializer {
 fun startPlayLoop() {
   thread {
     while (true) {
-      var (_, bufferSize) = calcBufferSize()
-
-      if (buffer.size > bufferSize) {
-        var lenDiff = 0.0
-
-        do {
-          val arr = getAudio(lenDiff).let { lenDiff = it.second; it.first }
-
-          line.write(arr, 0, arr.size)
-          line.drain()
-
-          if (buffer.size > bufferSize * 3) {
-            println("[ChaosMusicPlayer] buffer larger than it should be (should ${bufferSize}, but ${buffer.size}), clear buffer.")
-            buffer.clear()
-          }
-
-          val size = calcBufferSize()
-          val averageLen = size.first
-          bufferSize = size.second
-        } while ((buffer.size * averageLen) >= (bufferSize * 0.5).coerceAtMost(1.0))
-
-        // region buffer auto adjust
-        thread {
-          Thread.sleep(500)
-          if (!end) {
-            bufferLength *= 1.2
-            println("[ChaosMusicPlayer] was out of buffer, adding buffer length to $bufferLength")
-          } else if (bufferLength != defaultBufferLengthInSecond) {
-            println("[ChaosMusicPlayer] music end, reset buffer length to $defaultBufferLengthInSecond")
-            bufferLength = defaultBufferLengthInSecond
-          }
+      while (true) {
+        if (buffer.isEmpty()) {
+          break
         }
-        // endregion
-        end = true
-      } else {
-        Thread.sleep(10)
+
+        val size = (buffer[0].sampleRate.toDouble() / buffer[0].sampleNum).toInt()
+
+        if (buffer.size > size * 3) {
+          println("[ChaosMusicPlayer] buffer larger than it should be 3 times (should ${size}, but ${buffer.size}), clear buffer.")
+          buffer.clear()
+          break
+        }
+
+        printDebug("size: $size rate: ${buffer[0].sampleRate} num: ${buffer[0].sampleNum}")
+        val arrList = (1..size)
+          .mapNotNull { buffer.removeFirstOrNull() }
+
+        val masterScaler = minecraftClient?.options?.getSoundVolume(SoundCategory.MASTER)?.toDouble() ?: 0.5
+        val volumeScaler =
+          (minecraftClient?.options?.getSoundVolume(SoundCategory.RECORDS)?.toDouble() ?: 0.5) * masterScaler
+
+        val arr = MusicData.toAudioOneSecond(af, arrList, volumeScaler)
+
+        line.write(arr, 0, arr.size)
+        line.drain()
       }
+      Thread.sleep(10)
     }
   }
 }
 
-fun calcBufferSize(): Pair<Double, Int> {
-  // region calc bufferSize
-  val averageLen = if (buffer.isNotEmpty()) {
-    (buffer.sumOf { it.lengthInSecond } / buffer.size)
-  } else {
-    1.0 / 20
-  }
-
-  val bufferSize = (bufferLength / averageLen).roundToInt()
-    .coerceAtLeast(1)
-  // endregion
-
-  return averageLen to bufferSize
-}
-
-// data, newDiff
-fun getAudio(lenDiff: Double): Pair<ByteArray, Double> {
-  var diff = lenDiff
-
-  val size = buffer.size
-  val arrList = (1..size)
-    .mapNotNull { buffer.removeFirstOrNull() }
-  val bos = ByteArrayOutputStream()
-
-  val volumeScaler = minecraftClient?.options?.getSoundVolume(SoundCategory.RECORDS) ?: 0.5f
-
-  arrList.forEach {
-    val lenDouble = af.sampleRate * it.lengthInSecond
-    val lenSpilt = lenDouble.split()
-    diff += lenSpilt.second
-
-    val diffSplit = diff.split()
-    val len = if (diffSplit.first >= 1) {
-      diff -= diffSplit.first
-      lenSpilt.first + diffSplit.first
-    } else {
-      lenSpilt.first
-    }
-
-    bos.write(it.toAudio(len, volumeScaler.toDouble()))
-  }
-
-  return bos.toByteArray() to diff
-}
+// region buffer auto add
+//        if (buffer.size < size * (1 + bufferLength)) {
+//          if (!playing) {
+//            break
+//          } else if (buffer.size < size * 0.98) {
+//            if (bufferLength < 10) {
+//              bufferLength *= 1.5
+//              println("[ChaosMusicPlayer] was out of buffer, adding buffer length to $bufferLength")
+//            }
+//            break
+//          }
+//        }
+//
+//        playing = true
+// endregion

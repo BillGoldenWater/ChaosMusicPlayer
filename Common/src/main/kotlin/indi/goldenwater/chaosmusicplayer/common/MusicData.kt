@@ -5,10 +5,10 @@
 
 package indi.goldenwater.chaosmusicplayer.common
 
+import indi.goldenwater.chaosmusicplayer.common.utils.printDebug
 import org.jtransforms.dst.DoubleDST_1D
 import java.nio.ByteBuffer
 import javax.sound.sampled.AudioFormat
-import kotlin.math.roundToInt
 
 private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
 
@@ -18,9 +18,11 @@ private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
  */
 
 data class MusicData(
-  val items: List<DstItem> = listOf(),
-  val dstLen: Int = 0,
-  val ticksPerSecond: Double = 20.0,
+  val dstLen: Int,
+  val ticksPerSecond: Double,
+  val sampleRate: Float,
+  val sampleNum: Int,
+  val items: List<DstItem>,
 ) {
   @Suppress("MemberVisibilityCanBePrivate")
   val lengthInSecond: Double = 1.0 / ticksPerSecond
@@ -30,8 +32,10 @@ data class MusicData(
   fun encode(): ByteArray {
     val byteBuffer = ByteBuffer.allocate(size())
 
-    byteBuffer.putDouble(ticksPerSecond)
     byteBuffer.putInt(dstLen)
+    byteBuffer.putDouble(ticksPerSecond)
+    byteBuffer.putFloat(sampleRate)
+    byteBuffer.putInt(sampleNum)
     byteBuffer.putInt(items.size)
 
     for (item in items) {
@@ -44,65 +48,83 @@ data class MusicData(
 
   private fun size(): Int = HeaderSize + (DstItem.size * items.size)
 
-  @Suppress("unused")
-  fun toAudio(audioFormat: AudioFormat, speed: Double, volumeScale: Double): ByteArray {
-    val len = (audioFormat.sampleRate * lengthInSecond * (1 / speed)).roundToInt()
-    return toAudio(len, volumeScale)
-  }
-
-  @Suppress("MemberVisibilityCanBePrivate")
-  fun toAudio(len: Int, volumeScale: Double): ByteArray {
-    val halfLen = len / 2.0
-
-    val arr = DoubleArray(len) { 0.0 }
+  fun toSamples(): DoubleArray {
+    val arr = DoubleArray(sampleNum) { 0.0 }
 
     for (item in items) {
       if (item.index < arr.size) {
-        arr[item.index] = item.valueNormalized.toDouble() * halfLen
+        arr[item.index] = item.valueNormalized.toDouble() * sampleNum / 2
       }
     }
 
-    val dst = dSTs.getOrPut(len) { DoubleDST_1D(len.toLong()) }
+    val dst = dSTs.getOrPut(sampleNum) { DoubleDST_1D(sampleNum.toLong()) }
     dst.inverse(arr, false)
 
-    val buf = ByteBuffer.allocate(arr.size * Short.SIZE_BYTES)
-
-    for (d in arr) {
-      buf.putShort((d * Short.MAX_VALUE * 0.9 * volumeScale).toInt().toShort())
-      // 0.9 is for reduce some crack by limit max volume to 90%
-    }
-
-    return buf.array()
+    return arr
   }
 
   companion object {
     private const val MaxSize = 32766
     private const val HeaderSize =
-      Double.SIZE_BYTES /* tickPerSecond */ + Int.SIZE_BYTES /* dstLen */ + Int.SIZE_BYTES /* size */
+      Int.SIZE_BYTES /* dstLen */ + Double.SIZE_BYTES /* tickPerSecond */ + Int.SIZE_BYTES /* sampleRate */ + Int.SIZE_BYTES /* sampleNum */ + Int.SIZE_BYTES /* size */
     const val AvailableItemsNumber = (MaxSize - HeaderSize) / (DstItem.size)
 
     @Suppress("unused")
     fun fromEncoded(encoded: ByteArray): MusicData {
-      if (encoded.size < HeaderSize) return MusicData()
+      if (encoded.size < HeaderSize) throw IllegalArgumentException("empty header")
 
       val data = ByteBuffer.wrap(encoded)
-      val ticksPerSecond = data.double
-      val dstLen = data.int
-      val size = data.int
 
+      val dstLen = data.int
+      val ticksPerSecond = data.double
+      val sampleRate = data.float
+      val sampleNum = data.int
+
+      val size = data.int
       val items = (1..size).map {
         val index = data.int
         val value = data.float
         DstItem(index = index, valueNormalized = value)
       }
 
-      return MusicData(items = items, ticksPerSecond = ticksPerSecond, dstLen = dstLen)
+      return MusicData(
+        dstLen = dstLen,
+        ticksPerSecond = ticksPerSecond,
+        sampleRate = sampleRate,
+        sampleNum = sampleNum,
+        items = items,
+      )
     }
 
-//    fun toAudioMultiple(audioFormat: AudioFormat, datas: List<MusicData>) {
-//      val diff = 0.0
-//
-//      (audioFormat.sampleRate * lengthInSecond).toInt()
-//    }
+    fun toAudioOneSecond(audioFormat: AudioFormat, datas: List<MusicData>, volumeScale: Double): ByteArray {
+      val tLen = audioFormat.sampleRate.toInt()
+
+      @Suppress("NAME_SHADOWING")
+      val datas = datas.map { it.toSamples() }
+
+      datas.forEachIndexed { i, it ->
+        if (i < datas.size - 1) {
+          val cur = it[it.size - 1]
+          val next = datas[i + 1][0]
+
+          val move = cur - next / 4
+          it[it.size - 1] = cur - move
+          datas[i + 1][0] = next + move
+        }
+      }
+
+      val data = datas.flatMap { it.asIterable() }.toDoubleArray()
+
+      val scale = data.size.toDouble() / tLen
+      printDebug("${data.size} to $tLen with $scale")
+
+      val buf = ByteBuffer.allocate(tLen * Short.SIZE_BYTES)
+
+      for (i in 0 until tLen) {
+        buf.putShort((data[(i * scale).toInt()] * volumeScale * Short.MAX_VALUE).toInt().toShort())
+      }
+
+      return buf.array()
+    }
   }
 }

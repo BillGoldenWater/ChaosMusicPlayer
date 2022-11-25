@@ -29,8 +29,7 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.roundToLong
-import kotlin.system.measureNanoTime
+import kotlin.system.measureTimeMillis
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
 class MusicPlayer(
@@ -132,7 +131,7 @@ class MusicPlayer(
   private val dSTs: MutableMap<Int, DoubleDST_1D> = mutableMapOf()
   private val tickBufferArrays: MutableMap<Int, ByteArray> = mutableMapOf()
 
-  private var musicDataPerTick: MusicData = MusicData()
+  private var musicDataPerTick: MusicData? = null
   //endregion
 
   private var playing = true
@@ -150,16 +149,22 @@ class MusicPlayer(
   override fun run() {
     if (preload) audioInputStream.read(audioBuffer.array())
     tickWhenWaiting()
+    var lastTime = 1000L / ticksPerSecond
+    var offset = 0.0
     while (running) {
-      val costNano = measureNanoTime {
-        tick()
-        if (!running) return@run
-        tickWhenWaiting()
-      }
-      val costMillis = costNano.toDouble() / 1000 / 1000
+      val loopTime = 1000L / ticksPerSecond
+      offset += (loopTime - lastTime) / 4.0
 
-      val delay = ((1000.0 / ticksPerSecond) - costMillis).coerceAtLeast(0.0)
-      Thread.sleep(delay.roundToLong())
+      lastTime = measureTimeMillis {
+        val costMillis = measureTimeMillis {
+          tick()
+          if (!running) return@run
+          tickWhenWaiting()
+        }
+
+        val delay = (loopTime - costMillis + offset.roundToInt()).coerceAtLeast(0)
+        Thread.sleep(delay)
+      }
     }
   }
 
@@ -232,7 +237,13 @@ class MusicPlayer(
     val items = dSTOutputSounds
       .take(MusicData.AvailableItemsNumber)
     musicDataPerTick =
-      MusicData(items = items, dstLen = packetArr.size, ticksPerSecond = sampleRate.toDouble() / samplePerTick)
+      MusicData(
+        items = items,
+        dstLen = packetArr.size,
+        ticksPerSecond = sampleRate.toDouble() / samplePerTick,
+        sampleRate = sampleRate,
+        sampleNum = frameNum
+      )
     //endregion
   }
 
@@ -269,7 +280,8 @@ class MusicPlayer(
     val vanilla = grouped.getOrDefault(false, listOf())
     val direct = grouped.getOrDefault(true, listOf())
 
-    if (vanilla.isNotEmpty()) {
+    if (vanilla.isNotEmpty() && musicDataPerTick != null) {
+      val musicDataPerTick = musicDataPerTick!!
       val sounds = musicDataPerTick.items.take(maxSoundNumber).mapNotNull { item ->
         getFrequencySoundInfo(frequency = musicDataPerTick.convToFrequency(item.index))?.let {
           MCSoundEventItem(eventName = it.eventName, volume = abs(item.valueNormalized), pitch = it.pitch.toFloat())
@@ -285,7 +297,8 @@ class MusicPlayer(
       }
     }
 
-    if (direct.isNotEmpty()) {
+    if (direct.isNotEmpty() && musicDataPerTick != null) {
+      val musicDataPerTick = musicDataPerTick!!
       val encoded = musicDataPerTick.encode()
 
       for (player in direct) {

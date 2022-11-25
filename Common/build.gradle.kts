@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "indi.goldenwater.chaosmusicplayer.common"
-version = "1.1.1"
+version = "1.1.2"
 
 repositories {
     mavenCentral()
