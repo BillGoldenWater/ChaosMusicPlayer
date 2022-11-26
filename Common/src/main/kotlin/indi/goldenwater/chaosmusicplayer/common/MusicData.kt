@@ -96,8 +96,8 @@ data class MusicData(
       )
     }
 
-    fun toAudioOneSecond(audioFormat: AudioFormat, datas: List<MusicData>, volumeScale: Double): ByteArray {
-      val tLen = audioFormat.sampleRate.toInt()
+    fun toAudioNSecond(audioFormat: AudioFormat, datas: List<MusicData>, volumeScale: Double, seconds: Int): ByteArray {
+      val tLen = audioFormat.sampleRate.toInt() * seconds
 
       @Suppress("NAME_SHADOWING")
       val datas = datas.map { it.toSamples() }

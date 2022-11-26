@@ -24,12 +24,18 @@ import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.SourceDataLine
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
+import kotlin.system.measureTimeMillis
 
-val af = AudioFormat(44100f, Short.SIZE_BITS, 1, true, true)
+val af = AudioFormat(88200f, Short.SIZE_BITS, 1, true, true)
 val line: SourceDataLine = AudioSystem.getSourceDataLine(af)
 
 // data, length in second
 val buffer = mutableListOf<MusicData>()
+val bufferLength = if (System.getProperty("os.name") == "Mac OS X") {
+  1
+} else {
+  4
+}
 var minecraftClient: MinecraftClient? = null
 
 @Suppress("UNUSED")
@@ -82,31 +88,38 @@ object ChaosMusicPlayer : ClientModInitializer {
 fun startPlayLoop() {
   thread {
     while (true) {
-      while (true) {
-        if (buffer.isEmpty()) {
-          break
+      try {
+        while (true) {
+          if (buffer.isEmpty()) {
+            break
+          }
+
+          val size = (buffer[0].sampleRate.toDouble() / buffer[0].sampleNum).toInt() * bufferLength
+
+          if (buffer.size > size * 3) {
+            println("[ChaosMusicPlayer] buffer larger than it should be 3 times (should ${size}, but ${buffer.size}), clear buffer.")
+            buffer.clear()
+            break
+          }
+
+          printDebug("size: $size rate: ${buffer[0].sampleRate} num: ${buffer[0].sampleNum}")
+          val arrList = (1..size)
+            .mapNotNull { buffer.removeFirstOrNull() }
+
+          val masterScaler = minecraftClient?.options?.getSoundVolume(SoundCategory.MASTER)?.toDouble() ?: 0.5
+          val volumeScaler =
+            (minecraftClient?.options?.getSoundVolume(SoundCategory.RECORDS)?.toDouble() ?: 0.5) * masterScaler
+
+          val arr = MusicData.toAudioNSecond(af, arrList, volumeScaler, bufferLength)
+
+          val duration = measureTimeMillis {
+            line.write(arr, 0, arr.size)
+            line.drain()
+          }
+          printDebug("duration: $duration")
         }
-
-        val size = (buffer[0].sampleRate.toDouble() / buffer[0].sampleNum).toInt()
-
-        if (buffer.size > size * 3) {
-          println("[ChaosMusicPlayer] buffer larger than it should be 3 times (should ${size}, but ${buffer.size}), clear buffer.")
-          buffer.clear()
-          break
-        }
-
-        printDebug("size: $size rate: ${buffer[0].sampleRate} num: ${buffer[0].sampleNum}")
-        val arrList = (1..size)
-          .mapNotNull { buffer.removeFirstOrNull() }
-
-        val masterScaler = minecraftClient?.options?.getSoundVolume(SoundCategory.MASTER)?.toDouble() ?: 0.5
-        val volumeScaler =
-          (minecraftClient?.options?.getSoundVolume(SoundCategory.RECORDS)?.toDouble() ?: 0.5) * masterScaler
-
-        val arr = MusicData.toAudioOneSecond(af, arrList, volumeScaler)
-
-        line.write(arr, 0, arr.size)
-        line.drain()
+      } catch (e: Exception) {
+        e.printStackTrace()
       }
       Thread.sleep(10)
     }
